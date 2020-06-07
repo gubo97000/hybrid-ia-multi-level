@@ -1,7 +1,8 @@
 G/
 R/
 Plot/
+__pycache__/
 multi-level.zip
 trace.csv
-.vscode/settings.json
+.vscode/
 .Rproj.user
