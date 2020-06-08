@@ -39,7 +39,7 @@ def merge_nodes(G, R):
         G1.add_edge(R[u], R[v])
         # Compute weight
         G1.edges[R[u], R[v]]['weight'] = G1.edges[R[u],
-                                                    R[v]].get('weight', 0) + w
+                                                  R[v]].get('weight', 0) + w
     return G1
 
 
@@ -69,7 +69,7 @@ def explode_community(G0, trace, explode_id: int, i: int):
     return merge_nodes(G0, fixed_R0)
 
 
-def add_trace(i: int, R: dict, trace: pd.DataFrame):
+def add_trace(i: int, R: dict, trace: pd.DataFrame, prev: int = None):
     """
     Returns a dataframe to traceback from any level's communities the original nodes,
     giving an empty dataframe will return the dataframe with indexes the original nodes received from R0
@@ -82,25 +82,33 @@ def add_trace(i: int, R: dict, trace: pd.DataFrame):
         The results from the computation ex. {"orignal_node":"community_id", ...}
     trace: pd.dataframe
         The dataframe where to join the newer R
+    prev: int
+        If Ri is computed from a graph created with an R different from Ri-1, 
+        insert the correct index (needed when exploding community with bomb_max) 
 
     Returns
     -------
     nx.Graph
         The processed graph
     """
+    prev = i-1 if prev == None else prev
     Rn, Rc = R.keys(), R.values()
     df = pd.DataFrame(Rc, index=Rn, columns=[f"R{i}"])
+    # print("\n", df)
     if(trace.empty):
         return df
     else:
-        df1 = trace.join(df, on=f"R{i-1}")
+        df1 = trace.join(df, on=f"R{prev}")
+        # print("\n", df1)
         for key, val in df1[f"R{i}"].iteritems():
             if math.isnan(val):
+                # print(df1[f"R{i}"][key],"",end="")
                 # print(key,val)
                 # print(df1.at[key, f"R{i}"], df[f"R{i}"][key])
                 # df1.at[key, f"R{i}"] = df[f"R{i}"][key]
                 df1[f"R{i}"][key] = df[f"R{i}"][key]
                 # print(df1[f"R{i}"][key])
+                # print(df[f"R{i}"][key])
         return df1.astype('int64')
 
     # return df if trace.empty else trace.join(df, on=f"R{i-1}")
@@ -128,9 +136,30 @@ def prepare_folders(path="."):
         print("Error: %s - %s." % (e.filename, e.strerror))
 
 
-def hybrid_multi_level(graph, levels=20, explosion=True, add_args=[], path="."):
+def hybrid_multi_level(graph, levels=20, explosion=True, bomb_max=True, add_args=[], path="."):
+    """
+    Implements the multi-level to the hybrid-ia approach,
+    WARNING folders named "G" and "R" inside "path" will be EMPTIED if existing!
+
+    Parameters
+    ----------
+    graph: path to gml file
+        The original graph where to find the communities
+    levels: int
+        How many times the communities will be computed then reduced,
+        (in other words, the number of iterations)
+    explosion: bool
+        If True the function will try to maximize the result with community explosion
+    bomb_max: bool
+        If True further improvement are applied to community explosion
+        (by exploding the communities of the best result instead of the latest)
+    add_args: list
+        A list of parameter for hybrid-ia
+    path: string
+        The path where the results will be saved
+    """
     start = timer()
-    prepare_folders()
+    prepare_folders(path)
 
     # Create G0 from original graph for consistency
     G0 = nx.read_gml(graph, label='id')
@@ -138,11 +167,14 @@ def hybrid_multi_level(graph, levels=20, explosion=True, add_args=[], path="."):
     write_gml(G0, f"{path}/G/G0.gml")
 
     trace = pd.DataFrame()  # Empty dataframe to save the traceback
+    R_i = None
 
-    n_nodes = len(G0.nodes())-1 # Needed to give communities not conflicting ids
-    fit_hist=[]
+    # Needed to give communities not conflicting ids
+    n_nodes = len(G0.nodes())-1
+    fit_hist = []
 
-    print("Graph".rjust(5), "Nodes".rjust(5), "Edges".rjust(5), "Comm".ljust(5), "Fit".ljust(8), "Ex Time".rjust(5))
+    print("Graph".rjust(5), "Nodes".rjust(5), "Edges".rjust(5),
+          "Comm".ljust(5), "Fit".ljust(8), "Ex Time".rjust(5))
     for i in range(levels):  # Each loop: G"i" graph -compute-> create G"i+1"
 
         # Computation and gettin results
@@ -150,39 +182,45 @@ def hybrid_multi_level(graph, levels=20, explosion=True, add_args=[], path="."):
         args = ["./hybrid-ia", "-i", f"{path}/G/G{i}.gml"] + add_args
         res = subprocess.run(args, capture_output=True)
 
-        # Saving Raw Output
+        # Saving Raw Output in R folder
         with open(f"{path}/R/R{i}.txt", "w") as text_file:
             print(f"{res.stdout.decode('UTF-8')}", file=text_file)
 
         # Results cleaning
-        arrRes = res.stdout.decode('UTF-8').replace("\n","").split("\t")
-        print(f"{arrRes[0]:5} {arrRes[1]:5} {arrRes[2]:5} {arrRes[-3]:5} {float(arrRes[9]):6f} {float(arrRes[-1]):3f}",end="")
+        arrRes = res.stdout.decode('UTF-8').replace("\n", "").split("\t")
+        print(
+            f"{arrRes[0]:5} {arrRes[1]:5} {arrRes[2]:5} {arrRes[-3]:5} {float(arrRes[9]):6f} {float(arrRes[-1]):3f}", end="")
         # print(f"{arrRes[:-2]}")
 
+        # Saving resulting communities
         rawR0 = arrRes[11]
         R0 = dict((int(val[0]), int(val[1])+n_nodes) for val in [pair.split(":")
                                                                  for pair in rawR0.split(",")])
-        trace = add_trace(i, R0, trace)  # Updating traceback dataframe
-        fit_hist = fit_hist + [float(arrRes[9])]
-        
-        #Check if explosion is needed
-        if(explosion and len(fit_hist)>1 and (fit_hist[-1] == fit_hist[-2])):
+        trace = add_trace(i, R0, trace, R_i)  # Updating traceback dataframe
+        R_i = None  # Clean after been used
+        fit_hist = fit_hist + [float(arrRes[9])]  # Update modularity history
+        best_R = -1-((fit_hist[::-1].index(max(fit_hist)))-len(fit_hist))
+
+        # Check if explosion is needed
+        if(explosion and len(fit_hist) > 1 and (fit_hist[-1] == fit_hist[-2])):
+            R_i = best_R if bomb_max else i
             exploding_comm = random.randint(n_nodes+1, n_nodes+int(arrRes[10]))
             G1 = explode_community(nx.read_gml(
-                f'{path}/G/G0.gml', label='id'), trace, exploding_comm, i)
-            print(f" In G{i+1} exploded comm {exploding_comm}")
+                f'{path}/G/G0.gml', label='id'), trace, exploding_comm, R_i)
+            print(f" R{R_i} -> G{i+1} with exploded comm {exploding_comm}")
         else:
             G1 = merge_nodes(G0, R0)
+            print(f" R{i} -> G{i+1}", end="")
 
         write_gml(G1, f"{path}/G/G{i+1}.gml")
         G0 = G1
         print("")
-    print(max(fit_hist))
-    print(fit_hist.index(max(fit_hist)))
-    trace.to_csv(f"{path}/trace.csv")
-    
+        trace.to_csv(f"{path}/trace.csv")
+
     end = timer()
-    print(end - start)
+    print(f"Computation took {end - start}s")
+    print(f"Best modularity {max(fit_hist)} in R{best_R}")
+    return fit_hist
 
  # Time in seconds, e.g. 5.38091952400282
 # %%

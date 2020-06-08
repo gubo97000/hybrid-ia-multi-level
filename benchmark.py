@@ -1,15 +1,26 @@
-#%%
+# %%
 import importlib
 # from multi import hybrid_multi_level
 import multi as m
+import pandas as pd
 
 # %%
 importlib.reload(m)
+# MULTI_LEVEL
+add_arg = ["-t", "4000", "-p", "100"]
+fit_hist = m.hybrid_multi_level(
+    "email.gml",
+    levels=1,
+    add_args=add_arg,
+    explosion=False,
+    bomb_max=False)
 
-#MULTI_LEVEL
-add_arg=["-t", "10", "-p", "100"]
-m.hybrid_multi_level("email.gml", levels=200, add_args=add_arg, explosion=False)
+# %%
+# trace=pd.read_csv("./trace.csv")
+# print(max(fit_hist))
+import matplotlib.pyplot as plt
 
+plt.plot(fit_hist)
 # %%
 #   -a|--max-age int
 #      Max age of the antibodies (tau)
