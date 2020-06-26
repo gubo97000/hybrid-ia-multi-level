@@ -4,5 +4,6 @@ Plot/
 __pycache__/
 multi-level.zip
 trace.csv
+res.json
 .vscode/
 .Rproj.user
