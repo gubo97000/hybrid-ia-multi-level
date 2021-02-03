@@ -1,9 +1,14 @@
 G/
 R/
 Plot/
+Plots/
+Profiler/
 __pycache__/
 multi-level.zip
 trace.csv
 res.json
+R.txt
+T_M.txt
+cache.json
 .vscode/
 .Rproj.user

@@ -25,7 +25,7 @@ def find_mod(g, it):
 
 # %%
 # g = nx.karate_club_graph()
-g = nx.read_gml("./email.gml")
+g = nx.read_gml("./power.gml")
 lp_coms = algorithms.louvain(g, randomize=True)
 # leiden_coms = algorithms.leiden(g)
 print(lp_coms.newman_girvan_modularity())
@@ -40,6 +40,7 @@ clust = to_NC(tr, nx.read_gml(
 # clust = to_NC(par, g, "Hybrid-Ia")
 print(clust.newman_girvan_modularity())
 print(clust.edges_inside())
+print(clust.communities)
 print(clust.link_modularity)
 
 
