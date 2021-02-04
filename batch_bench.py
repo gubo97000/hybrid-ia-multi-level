@@ -20,15 +20,15 @@ def bench(name):
     # add_arg = ["-t", "1000"]
     res = m.hybrid_multi_level_beta(
         f"{name}.gml",
-        max_levels=9999999,
+        max_levels=20,
         smart_merge=True,
         # mod_goal= 0.2
-        hybrid_it="20",
+        hybrid_it="i-linear",
         # add_args=add_arg,
         # bomb_max=True,
         explosion=0,
         try_close=0,
-        min_ratio=1,
+        min_ratio=0.5,
         seed=None,
         save_trace=True,
         path=f"./bench-batch-hybridIA-beta/{name}/{int(time.time()*1000000)}",

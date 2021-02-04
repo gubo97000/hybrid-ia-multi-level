@@ -105,30 +105,31 @@ def add_trace(i: int, R: dict, trace: pd.DataFrame, prev: int = None):
         return df
     else:
         df1 = trace.join(df, on=f"R{prev}")
-        # print("\n", df1)
+        # Variable for speed up
+        prev_R = trace[f"R{prev}"]
+        max_prev_R = max(prev_R)
+        # key, val=list(zip(*df1[f"R{i}"].items()))
+        # list(map(lambda k,v:_fix_nan(k,v, df, prev_R, max_prev_R,i,df1), key, val))
         for key, val in df1[f"R{i}"].iteritems():
             if math.isnan(val):
-                # display(df[f"R{i}"],"\n")
-                # print(df1[f"R{i}"][key],"",end="")
-                # print(key,val)
-                # print(df1.at[key, f"R{i}"], df[f"R{i}"][key])
-                # df1.at[key, f"R{i}"] = df[f"R{i}"][key]
                 if key not in df[f"R{i}"]:
                     df1[f"R{i}"][key] = df[f"R{i}"][
-                        trace[f"R{prev}"][key]
-                        + max(trace[f"R{prev}"])
-                        - len(trace[f"R{prev}"])
-                        + 1
+                        prev_R[key] + max_prev_R - len(prev_R) + 1
                     ]
                 else:
                     df1[f"R{i}"][key] = df[f"R{i}"][key]
                 # df1[f"R{i}"][key] = "Nan"
 
-                # print(df1[f"R{i}"][key])
-                # print(df[f"R{i}"][key])
         return df1.astype("int64")
 
-    # return df if trace.empty else trace.join(df, on=f"R{i-1}")
+
+def _fix_nan(key, val, df, prev_R, max_prev_R, i, df1):
+    # print(val,key)
+    if math.isnan(val):
+        if key not in df[f"R{i}"]:  # New community id
+            df1[f"R{i}"][key] = df[f"R{i}"][prev_R[key] + max_prev_R - len(prev_R) + 1]
+        else:  # Community already existed
+            df1[f"R{i}"][key] = df[f"R{i}"][key]
 
 
 def prepare_folders(path="."):
@@ -448,7 +449,7 @@ def explode_community_beta(G0, trace, explode_id: [], i: int, min_ratio: float =
     trace : pd.DataFrame
         DataFrame with the traceback from any level to G0.
     explode_id: int
-        id for the community to explode
+        id for the community to explode, if [], will explode all
     i: int
         number of the level to use for explosion
 
@@ -460,13 +461,16 @@ def explode_community_beta(G0, trace, explode_id: [], i: int, min_ratio: float =
     R_base = trace.to_dict()[f"R{i}"]
     fixed_R0 = {}
     i_count, e_count = 0, 0
+    # Aux variable to speed up
+    R_base_max = max(R_base.values())
+    R_base_len = len(R_base.values())
     # fixed_R0 = {k: (k if (v in explode_id) and int_R_ext_degree(k, v, G0, R_base) <1   else v) for k,
     #             v in R_base.items()}
     for k, v in R_base.items():
-        if v in explode_id:
+        if not (explode_id) or v in explode_id:
             if ratio_internal_degree(k, v, G0, R_base) > min_ratio:
                 # keep, add number to avoid problems with trace
-                fixed_R0[k] = v + (max(R_base.values()) - len(R_base.values())) + 1
+                fixed_R0[k] = v + (R_base_max - R_base_len) + 1
                 i_count += 1
             else:
                 fixed_R0[k] = k  # expl
@@ -633,11 +637,7 @@ def hybrid_multi_level_beta(
             )
         elif smart_merge:
             G1 = explode_community_beta(
-                original_G0,
-                trace,
-                explode_id=list(trace[f"R{i}"].unique()),
-                i=i,
-                min_ratio=min_ratio,
+                original_G0, trace, explode_id=[], i=i, min_ratio=min_ratio,
             )
         else:
             G1 = merge_nodes(G0, R0)

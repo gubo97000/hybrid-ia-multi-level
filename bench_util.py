@@ -39,7 +39,9 @@ def multiAverage(rootdir):
             r = json.load(j)
         s = []
         best = []
-
+        #Check if it has time_hist
+        if "time_hist" in r:
+            
         # Search for cache
         if os.path.exists(f"./{rootdir}/{i}/cache.json"):
             with open(f"./{rootdir}/{i}/cache.json") as j:
