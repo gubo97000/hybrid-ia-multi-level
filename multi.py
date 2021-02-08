@@ -487,10 +487,11 @@ def hybrid_multi_level_beta(
     graph,
     smart_merge: bool = False,
     mod_goal: float = None,
+    max_time: int = None,
     max_levels=9999999,
     hybrid_it: str = "",
     explosion: int = 1,
-    try_close=1,
+    try_close: int = 1,
     min_ratio: float = 0.5,
     add_args=[],
     path=".",
@@ -608,33 +609,40 @@ def hybrid_multi_level_beta(
             last_try = True
             explosion = old_explosion
 
-        # Check if explosion is needed, exit if pool is empty
-        if explosion and ((len(fit_hist) > 1 and (fit_hist[-1] == fit_hist[-2]))):
-            if not explode_pool:
-                if last_try:
-                    last_try = False
-                    explode_pool = list(trace[f"R{best_1R}"].unique())
-                    explosion = len(explode_pool)
-                else:
-                    print(f"CLOSING, can't find better result")
-                    break
-            R_i = best_1R
-            # exploding_comm = random.randint(
-            #     n_nodes+1, trace[(f"R{R_i}")].max())
-            exploding_comm = random.sample(
-                list(set(explode_pool)),
-                k=explosion
-                if len(list(set(explode_pool))) >= explosion
-                else len(list(set(explode_pool))),
-            )
-            print(f"R{R_i} -> G{i+1} expl{exploding_comm} ", end="")
-            # display(trace)
-            if try_close:
-                for c in exploding_comm:
-                    explode_pool.remove(c)
-            G1 = explode_community_beta(
-                original_G0, trace, exploding_comm, R_i, min_ratio=min_ratio,
-            )
+        #Check if stagnating
+        if len(fit_hist)>1 and (fit_hist[-1] == fit_hist[-2]):
+            # Check if explosion is needed, exit if pool is empty
+            if explosion:
+                if not explode_pool:
+                    if last_try:
+                        last_try = False
+                        explode_pool = list(trace[f"R{best_1R}"].unique())
+                        explosion = len(explode_pool)
+                    else:
+                        time_hist += [timer() - t_start] #Save Time_hist
+                        print(f"CLOSING, can't find better result")
+                        break
+                R_i = best_1R
+                # exploding_comm = random.randint(
+                #     n_nodes+1, trace[(f"R{R_i}")].max())
+                exploding_comm = random.sample(
+                    list(set(explode_pool)),
+                    k=explosion
+                    if len(list(set(explode_pool))) >= explosion
+                    else len(list(set(explode_pool))),
+                )
+                print(f"R{R_i} -> G{i+1} expl{exploding_comm} ", end="")
+                # display(trace)
+                if try_close:
+                    for c in exploding_comm:
+                        explode_pool.remove(c)
+                G1 = explode_community_beta(
+                    original_G0, trace, exploding_comm, R_i, min_ratio=min_ratio,
+                )
+            else:
+                time_hist += [timer() - t_start] #Save Time_hist
+                print(f"CLOSING, can't find better result")
+                break
         elif smart_merge:
             G1 = explode_community_beta(
                 original_G0, trace, explode_id=[], i=i, min_ratio=min_ratio,
@@ -650,10 +658,15 @@ def hybrid_multi_level_beta(
         print(
             f"{(timer()-float(arrRes[-1])-t_loop): 5.2f} {timer()-t_start : 5.2f} {h_it[1]}"
         )  # \n
+
+        #Save Time_hist
         time_hist += [timer() - t_start]
 
-        if mod_goal != None and mod_goal <= fit_hist[-1]:
+        if mod_goal is not None and mod_goal <= fit_hist[-1]:
             print(f"CLOSING, Found modularity goal!")
+            break
+        if max_time is not None and max_time <= time_hist[-1]:
+            print(f"CLOSING, Max time reached!")
             break
 
     t_end = timer()

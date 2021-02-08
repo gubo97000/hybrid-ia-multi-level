@@ -6,8 +6,10 @@ import os
 from itertools import zip_longest
 import numpy as np
 import pandas as pd
+
 # from tqdm import tqdm
 import tqdm as tq
+
 # import tqdm.notebook as tq
 
 # %%
@@ -39,19 +41,20 @@ def multiAverage(rootdir):
             r = json.load(j)
         s = []
         best = []
-        #Check if it has time_hist
-        if "time_hist" in r:
-            
+
         # Search for cache
         if os.path.exists(f"./{rootdir}/{i}/cache.json"):
             with open(f"./{rootdir}/{i}/cache.json") as j:
                 cache = json.load(j)
-                # TEMP_FIX add final time and fit
-                s = cache["cumulative_R_Time"] + [r["exe_time"]]
-                best = cache["best_fit_hist"] + [r["best_fit"]]
-                r["fit_hist"] += [r["best_fit"]]
-
-        if not (s and best):
+                if "time_hist" in r:
+                    s = r["time_hist"]
+                else:
+                    s = cache["cumulative_R_Time"]
+                best = cache["best_fit_hist"]
+                # s = cache["cumulative_R_Time"] + [r["exe_time"]]
+                # best = cache["best_fit_hist"] + [r["best_fit"]]
+                # r["fit_hist"] += [r["best_fit"]]
+        else:
             for ii in range(len(r["fit_hist"])):
                 with open(f"./{rootdir}/{i}/R/R{ii}.txt") as t:
                     arr = t.read().replace("\n", "").split("\t")
@@ -65,12 +68,15 @@ def multiAverage(rootdir):
                             best += [best[-1]]
             with open(f"./{rootdir}/{i}/cache.json", "w") as f:
                 json.dump({"cumulative_R_Time": s, "best_fit_hist": best}, f)
-
+        
+        if "time_hist" in r:
+            s = r["time_hist"]
         max_time = s[-1] if s[-1] > max_time else max_time
         min_time = s[0] if s[0] < min_time else min_time
         max_lev = len(r["fit_hist"]) if len(r["fit_hist"]) > max_lev else max_lev
         # print(i, datetime.timedelta(seconds=s[-1]), datetime.timedelta(seconds=r["exe_time"]), r["best_fit"])
         log[i] = {"h_best_fit": best, "h_time": s, "res": r}
+    
     # AVG computation time correct
     a_best = False
     a_fit = False
