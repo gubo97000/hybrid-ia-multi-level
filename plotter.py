@@ -2,10 +2,10 @@
 from IPython.display import display
 
 # from mpl_toolkits.mplot3d import Axes3D
-# import os
+import os
 from statistics import mean
 
-# import json
+import json
 import matplotlib.pyplot as plt
 import importlib
 
@@ -13,12 +13,27 @@ import importlib
 # import multi as m
 import bench_util as bu
 
-# import pandas as pd
+import pandas as pd
+
 # import datetime
 import numpy as np
+import math
 
 # import random
 # from tqdm import tqdm
+
+
+def color_light(color, amount=0.5):
+    import matplotlib.colors as mc
+    import colorsys
+
+    try:
+        c = mc.cnames[color]
+    except:
+        c = color
+    c = colorsys.rgb_to_hls(*mc.to_rgb(c))
+    return colorsys.hls_to_rgb(c[0], max(0, min(1, amount * c[1])), c[2])
+
 
 # %% Single network plot ##########################################################
 importlib.reload(bu)
@@ -223,21 +238,43 @@ plt.show()
 # ax1 = fig.add_subplot(111, projection='3d')
 # ax1.scatter(n, l, t)
 
-# %% GET GENERAL STAT TABLE
-importlib.reload(bu)
-names = ["Email", "Yeast", "Power"]
-latex_str = ""
+# %%
+def stat_table(networks, to_comp):
+    importlib.reload(bu)
+    stat = pd.DataFrame()
+    for fold in to_comp:
+        row = pd.DataFrame()
+        for net in networks:
+            if not row.empty:
+                row = pd.concat(
+                    [row, bu.batch_stats(f"{fold[0]}/{net.lower()}", net, fold[1])],
+                    axis=1,
+                )
+            else:
+                row = bu.batch_stats(f"{fold[0]}/{net.lower()}", net, fold[1])
+        stat = pd.concat([stat, row])
+    display(stat)
+    return stat
 
 
-for name in names:
-    print("\n\n", name)
-    sta = bu.batch_stats(f"./bench-batch/{name.lower()}")[-4:]
-    display(sta)
+#%% GET STAT TABLE
+pd.options.display.latex.repr=True
+pd.options.display.latex.repr=False
+networks = ["Email", "Yeast", "Power"]
+to_comp = [
+        ["./bench-batch-hybrid", "Immunologic"],
+        ["./bench-batch", "MultiLevel"],
+        ["./bench-batch-beta", "Smart Explosion"],
+        ["./BB-hybridIA", "HybridIA"],
+        # ["./BB-hybridIA-smartMerge", "HybridIA + Smart Merge"],
+        ["./BB-hybridIA-smartMerge1", "HybridIA + Smart Merge"],
+        # ["./BB-h-sm-fix", "fix"],
 
-    latex_str += sta.to_latex(caption=name)
+    ]
+stat = stat_table(networks, to_comp)
 
-print(latex_str)
-
+# latex_str = stat.to_latex(caption=to_comp)
+# print(latex_str)
 #%% No Explosion Plot #########################################################
 names = ["Email", "Yeast", "Power"]
 final_pdf_name = False
@@ -252,7 +289,7 @@ for pdf_name in names:
     # ax2 = plt.subplot(int(f"{len(names)}2{count+1}"))
     count += 1
 
-    ####COMPARE MULTI####
+    ####Fixing Bad result####
     all_max_mod = []
     avg, log = bu.multiAverage(f"./bench-batch/{pdf_name.lower()}")
     for name, ex in log.items():
@@ -284,7 +321,7 @@ for pdf_name in names:
     #######COMPARE Immune ##########
     avg, log = bu.hyAverage(f"./bench-batch-hybrid/{pdf_name.lower()}")
     for name, ex in log.items():
-        ax1.plot(ex["time_hist"], ex["fit_hist"], c="xkcd:pink",alpha=0.5)
+        ax1.plot(ex["time_hist"], ex["fit_hist"], c="xkcd:pink", alpha=0.5)
 
     ax1.plot(
         avg["time_hist"],
@@ -315,70 +352,151 @@ if final_pdf_name:
 
 plt.show()
 
-# %% COMPARE EXPLOSION WITH SMART EXPLOSION ####################################
+# %%
+def plot_compare(networks, to_compare, pdf=False):
+    names = networks
+    if pdf:
+        final_pdf_name = f"./Plots/{pdf}{names}.pdf"
+
+    importlib.reload(bu)
+    fig = plt.figure(figsize=(10, len(names) * 5))
+    count = 1
+    for network_name in names:
+        ax1 = plt.subplot(int(f"{len(names)}1{count}"))
+        # ax2 = plt.subplot(int(f"{len(names)}2{count+1}"))
+        count += 1
+
+        for fold in to_compare:
+            if fold[0] in ["./bench-batch-hybrid", "./BB-hybridIA"]:  # Pure
+                avg, log = bu.hyAverage(f"{fold[0]}/{network_name.lower()}")
+                for name, ex in log.items():
+                    ax1.plot(
+                        ex["time_hist"],
+                        ex["fit_hist"],
+                        c=color_light(fold[1], 1.8),
+                        alpha=0.4,
+                    )
+                ax1.plot(
+                    avg["time_hist"],
+                    avg["fit_hist"],
+                    linewidth=2,
+                    c=fold[1],
+                    label=fold[2],
+                )
+
+            else:  # Multi-level
+                avg, log = bu.multiAverage(f"{fold[0]}/{network_name.lower()}")
+                for name, ex in log.items():
+                    ax1.plot(
+                        ex["h_time"],
+                        ex["h_best_fit"],
+                        c=color_light(fold[1], 2),
+                        alpha=0.4,
+                    )
+                ax1.plot(
+                    avg["h_time"],
+                    avg["h_best_fit"],
+                    linewidth=2,
+                    c=fold[1],
+                    label=fold[2],
+                )
+
+        ax1.set_xlabel("Time (s)")
+        ax1.set_title(f"Modularity over time - {network_name}")
+        ax1.yaxis.set_major_locator(plt.MaxNLocator(11))
+        ax1.grid()
+        ax1.legend()
+        # ax1.hlines(0.57,0,2500)
+
+        # ax2.set_title("Modularity over iterations")
+        # ax2.set_xlabel("Iterations")
+
+        # ax2.grid()
+        # ax2.legend()
+    if pdf:
+        plt.savefig(f"{final_pdf_name}.jpg", format="jpg", bbox_inches="tight", dpi=200)
+        plt.savefig(f"{final_pdf_name}.pdf", format="pdf", bbox_inches="tight")
+        print(f"Plot saved: {final_pdf_name}")
+
+    plt.show()
+    return fig
+
+
+# %%
+plot_compare(
+    ["Email", "Yeast", "Power"],
+    [
+        ["./bench-batch-hybrid", "xkcd:purple", "Mean Immunologic"],
+        ["./bench-batch", "xkcd:green", "Mean MultiLevel"],
+        ["./bench-batch-beta", "xkcd:red", "Mean Smart Explosion"],
+        ["./BB-hybridIA", "xkcd:black", "Mean HybridIA"],
+        ["./BB-hybridIA-smartMerge1", "xkcd:blue", "Mean HybridIA + Smart Merge"],
+    ],
+    "Smart_Merge_Compare_Graph",
+)
+
+
+# %%
 names = ["Email", "Yeast", "Power"]
 final_pdf_name = False
-final_pdf_name = f"./Plots/Smart_Compare_Graph{names}.pdf"
-#########
+# final_pdf_name = f"./Plots/Fixed Smart{names}"
+#######
 
 importlib.reload(bu)
 plt.figure(figsize=(10, len(names) * 5))
 count = 1
-for network_name in names:
+for pdf_name in names:
     ax1 = plt.subplot(int(f"{len(names)}1{count}"))
     # ax2 = plt.subplot(int(f"{len(names)}2{count+1}"))
     count += 1
 
-    ####COMPARE MULTI####
-    avg, log = bu.multiAverage(f"./bench-batch/{network_name.lower()}")
+    ####Fix####
+    avg, log = bu.multiAverage(f"./BB-hybridIA-smartMerge1/{pdf_name.lower()}")
+    time,bf=[],[]
     for name, ex in log.items():
+        f_h=ex["res"]["fit_hist"]
+        c=0
+        # for i in range(len(f_h)):
+        #     if i>0:
+        #         if f_h[i]>f_h[i-1]:
+        #             c=0
+        #     c += 1
+        #     if c>5:
+        #         break
+# ######
+        # for i in range(len(f_h)):
+        #     if i>30:
+        #         if math.isclose(f_h[i],f_h[i-30], rel_tol=1e-05):
+        #             break
+####
+        for i in range(len(f_h)):
+            if ex["h_time"][i] > 5431:
+                break
+        
+        # stop=int(ex["res"]["best_fit_fi"])+5
+        # stop=len(ex["h_time"])
+        time+=[ex["h_time"][i]]
+        bf+=[max(ex["h_best_fit"][:i])]
+        ax1.plot(ex["h_time"][:i], ex["h_best_fit"][:i], c="xkcd:silver")
 
-        # ax1.plot(ex["h_time"], ex["res"]["fit_hist"])
-        ax1.plot(ex["h_time"], ex["h_best_fit"], c="xkcd:silver")
-
-        a = [i * 1000 for i in range(len(ex["res"]["fit_hist"]))]
-
-        # ax2.plot(a, ex["res"]["fit_hist"])
-        # ax2.plot(a, ex["h_best_fit"], c="grey")
+    filename = f"./BB-h-sm-fix/{pdf_name.lower()}/fixed/fix.json"
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    with open(filename, "w") as f:
+        json.dump({"time":time,"bf":bf},f)
 
     # ax1.plot(avg["h_time"], avg["fit_hist"], label=f"AVG")
-    ax1.plot(
-        avg["h_time"],
-        avg["h_best_fit"],
-        linewidth=2,
-        c="xkcd:red",
-        label=f"Mean Multi-Level",
-    )
-
-    a = [i * 1000 for i in range(len(avg["h_best_lvl_fit"]))]
-    # ax2.plot(a, np.array(avg["h_best_lvl_fit"]), label=f"AVG", c="red", linewidth=2)
-
-    #######COMPARE SMART##########
-    avg, log = bu.multiAverage(f"./bench-batch-beta/{network_name.lower()}")
-    for name, ex in log.items():
-
-        # ax1.plot(ex["h_time"], ex["res"]["fit_hist"])
-        ax1.plot(ex["h_time"], ex["h_best_fit"], c="xkcd:lightblue")
-
-        a = [i * 1000 for i in range(len(ex["res"]["fit_hist"]))]
-
-        # ax2.plot(a, ex["res"]["fit_hist"])
-        # ax2.plot(a, ex["h_best_fit"], c="grey")
-
-    # ax1.plot(avg["h_time"], avg["fit_hist"], label=f"AVG")
-    ax1.plot(
-        avg["h_time"],
-        avg["h_best_fit"],
-        linewidth=2,
-        c="xkcd:blue",
-        label=f"Mean Smart Explosion",
-    )
-
-    a = [i * 1000 for i in range(len(avg["h_best_lvl_fit"]))]
-    # ax2.plot(a, np.array(avg["h_best_lvl_fit"]), label=f"AVG", c="red", linewidth=2)
+    # ax1.plot(
+    #     avg["h_time"],
+    #     avg["h_best_fit"],
+    #     linewidth=2,
+    #     c="xkcd:red",
+    #     label=f"Mean Multi-Level",
+    # )
 
     ax1.set_xlabel("Time (s)")
-    ax1.set_title(f"Modularity over time - {network_name}")
+    # ax1.set_xlabel("Time (s)", loc="right") #Only on matplotlib 3.3.3
+    ax1.set_ylabel("Modularity")
+    ax1.set_title(f"Modularity over time - {pdf_name}")
     ax1.yaxis.set_major_locator(plt.MaxNLocator(11))
     ax1.grid()
     ax1.legend()
@@ -389,112 +507,25 @@ for network_name in names:
 
     # ax2.grid()
     # ax2.legend()
+
 if final_pdf_name:
     plt.savefig(f"{final_pdf_name}.jpg", format="jpg", bbox_inches="tight")
     plt.savefig(f"{final_pdf_name}.pdf", format="pdf", bbox_inches="tight")
-    print(f"Plot saved: {final_pdf_name}")
-
-plt.show()
-
-# %% COMPARE ALL SMART EXPLOSION WITH SMART MERGE + HYBRID####################################
-names = [
-    "Email", 
-    "Yeast", 
-    "Power"
-]
-final_pdf_name = False
-# final_pdf_name = f"./Plots/Smart_Merge_Compare_Graph{names}.pdf"
-#########
-
-importlib.reload(bu)
-plt.figure(figsize=(10, len(names) * 5))
-count = 1
-for network_name in names:
-    ax1 = plt.subplot(int(f"{len(names)}1{count}"))
-    # ax2 = plt.subplot(int(f"{len(names)}2{count+1}"))
-    count += 1
-
-    ####COMPARE MULTI EXPLOSION#### Immuno
-    avg, log = bu.multiAverage(f"./bench-batch/{network_name.lower()}")
-    for name, ex in log.items():
-        ax1.plot(ex["h_time"], ex["h_best_fit"], c="xkcd:lightgreen", alpha=0.5)
-
-    ax1.plot(
-        avg["h_time"],
-        avg["h_best_fit"],
-        linewidth=2,
-        c="xkcd:green",
-        label=f"Mean MultiLevel",
-    )
-
-    ####COMPARE MULTI SMART EXPLOSION#### Immuno
-    avg, log = bu.multiAverage(f"./bench-batch-beta/{network_name.lower()}")
-    for name, ex in log.items():
-        ax1.plot(ex["h_time"], ex["h_best_fit"], c="xkcd:coral", alpha=0.5)
-
-    ax1.plot(
-        avg["h_time"],
-        avg["h_best_fit"],
-        linewidth=2,
-        c="xkcd:red",
-        label=f"Mean Smart Explosion",
-    )
-
-    #######COMPARE SMART MERGE########## Hybrid
-    avg, log = bu.multiAverage(f"./BB-hybridIA-smartMerge/{network_name.lower()}")
-    for name, ex in log.items():
-        ax1.plot(ex["res"]["time_hist"], ex["h_best_fit"], c="xkcd:lightblue", alpha=0.5)
-
-    ax1.plot(
-        avg["h_time"],
-        avg["h_best_fit"],
-        linewidth=2,
-        c="xkcd:blue",
-        label=f"Mean HybridIA + Smart Merge",
-    )
-
-    #######COMPARE Immune ##########
-    avg, log = bu.hyAverage(f"./bench-batch-hybrid/{network_name.lower()}")
-    for name, ex in log.items():
-        ax1.plot(ex["time_hist"], ex["fit_hist"], c="xkcd:pink",alpha=0.5)
-
-    ax1.plot(
-        avg["time_hist"],
-        avg["fit_hist"],
-        linewidth=2,
-        c="xkcd:purple",
-        label=f"Mean Immunologic",
-    )
-
-    #######COMPARE HybridIA ##########
-    avg, log = bu.hyAverage(f"./BB-hybridIA/{network_name.lower()}")
-    for name, ex in log.items():
-        ax1.plot(ex["time_hist"], ex["fit_hist"], c="xkcd:gray",alpha=0.5)
-
-    ax1.plot(
-        avg["time_hist"],
-        avg["fit_hist"],
-        linewidth=2,
-        c="xkcd:black",
-        label=f"Mean HybridIA",
-    )
-
-    ax1.set_xlabel("Time (s)")
-    ax1.set_title(f"Modularity over time - {network_name}")
-    ax1.yaxis.set_major_locator(plt.MaxNLocator(11))
-    ax1.grid()
-    ax1.legend()
-    # ax1.hlines(0.57,0,2500)
-
-    # ax2.set_title("Modularity over iterations")
-    # ax2.set_xlabel("Iterations")
-
-    # ax2.grid()
-    # ax2.legend()
-if final_pdf_name:
-    plt.savefig(f"{final_pdf_name}.jpg", format="jpg", bbox_inches="tight")
-    plt.savefig(f"{final_pdf_name}.pdf", format="pdf", bbox_inches="tight")
-    print(f"Plot saved: {final_pdf_name}")
 
 plt.show()
 # %%
+#%% GET STAT TABLE
+pd.options.display.latex.repr=True
+pd.options.display.latex.repr=False
+networks = ["Email", "Yeast", "Power"]
+to_comp = [
+        # ["./bench-batch-hybrid", "Immunologic"],
+        ["./bench-batch", "MultiLevel"],
+        # ["./bench-batch-beta", "Smart Explosion"],
+        # ["./BB-hybridIA", "HybridIA"],
+        # ["./BB-hybridIA-smartMerge", "HybridIA + Smart Merge"],
+        ["./BB-hybridIA-smartMerge1", "HybridIA + Smart Merge"],
+        ["./BB-h-sm-fix", "fix"],
+
+    ]
+stat = stat_table(networks, to_comp)

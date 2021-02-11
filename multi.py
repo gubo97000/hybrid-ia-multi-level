@@ -496,7 +496,7 @@ def hybrid_multi_level_beta(
     add_args=[],
     path=".",
     seed=None,
-    save_trace=True,
+    save_intermediate=False
 ):
     """
     Implements multi-level to the immunologic approach,
@@ -563,14 +563,16 @@ def hybrid_multi_level_beta(
             if hybrid_it == "linear":
                 h_it = ["-t", f"{G0.number_of_nodes()}"]
             elif hybrid_it == "i_linear":
+                # n_it = original_G0.number_of_nodes() + 10 - G0.number_of_nodes()
+                n_it = int((original_G0.number_of_nodes()/G0.number_of_nodes())*10)
                 h_it = [
                     "-t",
-                    f"{int((original_G0.number_of_nodes()/G0.number_of_nodes())*10)}",
+                    f"{n_it if n_it <100 else 100 }",
                 ]
             else:
                 h_it = ["-t", hybrid_it]
 
-        args = ["./hybrid-ia", "-i", f"{path}/G/G{i}.gml"] + add_args + h_it
+        args = ["./hybrid-ia", "-i", f"{path}/G/G{i if save_intermediate or i ==0 else 'f'}.gml"] + add_args + h_it
         # res = subprocess.run(args, capture_output=True) #3.8 version
         res = subprocess.run(args, stdout=subprocess.PIPE)  # 3.6 version
 
@@ -581,7 +583,7 @@ def hybrid_multi_level_beta(
         # Results cleaning
         arrRes = res.stdout.decode("UTF-8").replace("\n", "").split("\t")
         print(
-            f"{arrRes[0]:5} {arrRes[1]:5} {arrRes[2]:5} {arrRes[-3]:5} {float(arrRes[9]):6f} {float(arrRes[-1]):3f} ",
+            f"{'G'+str(i):5} {arrRes[1]:5} {arrRes[2]:5} {arrRes[-3]:5} {float(arrRes[9]):6f} {float(arrRes[-1]):3f} ",
             end="",
         )
 
@@ -609,8 +611,8 @@ def hybrid_multi_level_beta(
             last_try = True
             explosion = old_explosion
 
-        #Check if stagnating
-        if len(fit_hist)>1 and (fit_hist[-1] == fit_hist[-2]):
+        # Check if stagnating
+        if len(fit_hist) > 1 and (fit_hist[-1] == fit_hist[-2]):
             # Check if explosion is needed, exit if pool is empty
             if explosion:
                 if not explode_pool:
@@ -619,7 +621,7 @@ def hybrid_multi_level_beta(
                         explode_pool = list(trace[f"R{best_1R}"].unique())
                         explosion = len(explode_pool)
                     else:
-                        time_hist += [timer() - t_start] #Save Time_hist
+                        time_hist += [timer() - t_start]  # Save Time_hist
                         print(f"CLOSING, can't find better result")
                         break
                 R_i = best_1R
@@ -640,7 +642,7 @@ def hybrid_multi_level_beta(
                     original_G0, trace, exploding_comm, R_i, min_ratio=min_ratio,
                 )
             else:
-                time_hist += [timer() - t_start] #Save Time_hist
+                time_hist += [timer() - t_start]  # Save Time_hist
                 print(f"CLOSING, can't find better result")
                 break
         elif smart_merge:
@@ -651,7 +653,10 @@ def hybrid_multi_level_beta(
             G1 = merge_nodes(G0, R0)
             print(f"R{i} -> G{i+1}", end=" ")
 
-        write_gml(G1, f"{path}/G/G{i+1}.gml")
+        if save_intermediate:
+            write_gml(G1, f"{path}/G/G{i+1}.gml")
+        else:
+            write_gml(G1, f"{path}/G/Gf.gml")
         G0 = G1
 
         # Print Time and overhead
@@ -659,7 +664,7 @@ def hybrid_multi_level_beta(
             f"{(timer()-float(arrRes[-1])-t_loop): 5.2f} {timer()-t_start : 5.2f} {h_it[1]}"
         )  # \n
 
-        #Save Time_hist
+        # Save Time_hist
         time_hist += [timer() - t_start]
 
         if mod_goal is not None and mod_goal <= fit_hist[-1]:
@@ -676,8 +681,11 @@ def hybrid_multi_level_beta(
     )
 
     print(f"Saving results... ", end="")
-    if save_trace:
+    if save_intermediate:
         trace.sort_index().to_csv(f"{path}/trace.csv")
+    else:
+        trace[f"R{best_R}"].sort_index().to_csv(f"{path}/trace.csv")
+        
 
     log.update(
         {
@@ -697,3 +705,5 @@ def hybrid_multi_level_beta(
 
 
 # %%
+def check_close_condition():
+    return

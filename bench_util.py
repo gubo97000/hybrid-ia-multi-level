@@ -68,7 +68,7 @@ def multiAverage(rootdir):
                             best += [best[-1]]
             with open(f"./{rootdir}/{i}/cache.json", "w") as f:
                 json.dump({"cumulative_R_Time": s, "best_fit_hist": best}, f)
-        
+
         if "time_hist" in r:
             s = r["time_hist"]
         max_time = s[-1] if s[-1] > max_time else max_time
@@ -76,7 +76,7 @@ def multiAverage(rootdir):
         max_lev = len(r["fit_hist"]) if len(r["fit_hist"]) > max_lev else max_lev
         # print(i, datetime.timedelta(seconds=s[-1]), datetime.timedelta(seconds=r["exe_time"]), r["best_fit"])
         log[i] = {"h_best_fit": best, "h_time": s, "res": r}
-    
+
     # AVG computation time correct
     a_best = False
     a_fit = False
@@ -233,7 +233,7 @@ def rel_timeVgraph(rootdirs, max_n=None):
 
 
 # %%
-def batch_stats(rootdirs):
+def batch_stats(rootdirs, network, name):
     """
     Execution time, fit, iteration for each execution in directory, and cumulative stats at the end
 
@@ -259,17 +259,34 @@ def batch_stats(rootdirs):
             break
         # dirs=[float(i) for i in dirs]
         # dirs = sorted(dirs, key=lambda x: int("".join([i for i in x if i.isdigit()])))
-        for i in dirs:
-            with open(f"./{rootdir}/{i}/res.json") as j:
-                r = json.load(j)
-            names += [i]
-            time += [r["exe_time"]]
-            bf += [r["best_fit"]]
-            it += [len(r["fit_hist"])]
+        for i in tq.tqdm(dirs, desc=rootdir, leave=False):
+            if rootdir.split("/")[1] in ["bench-batch-hybrid", "BB-hybridIA"]:
+                with open(f"./{rootdir}/{i}/T_M.txt") as j:
+                    r = json.load(j)
+                names += [i]
+                time += [float(r["time_hist"][-1])]
+                it += [len(r["fit_hist"])]
+                with open(f"./{rootdir}/{i}/R.txt") as j:
+                    arr = j.read().replace("\n", "").split("\t")
+                    bf += [float(arr[-4])]
+            elif i == "fixed":
+                with open(f"./{rootdir}/{i}/fix.json") as j:
+                    r = json.load(j)
+                names = list(range(len(r["time"])))
+                time = r["time"]
+                bf = r["bf"]
+                it = [0] * len(r["time"])
+            else:
+                with open(f"./{rootdir}/{i}/res.json") as j:
+                    r = json.load(j)
+                names += [i]
+                time += [r["exe_time"]]
+                bf += [r["best_fit"]]
+                it += [len(r["fit_hist"])]
 
             # print(i, r["exe_time"],r["best_fit"], len(r["fit_hist"]))
-
     # print(mean(time),mean(bf),mean(it))
+    # print(len(names),len(time),len(bf),len(it))
     df = pd.DataFrame(
         data={"Execution Time (s)": time, "Fit": bf, "Levels": it}, index=names
     )
@@ -277,10 +294,24 @@ def batch_stats(rootdirs):
     df.loc["min"] = df.min()
     df.loc["mean"] = df.mean()
     df.loc["std"] = df.std()
+
+    # print(df[1])
+    fit = f"{df.loc['mean']['Fit']:5.4f}±{df.loc['std']['Fit']:5.4f}"
+    time = f"{int(df.loc['mean']['Execution Time (s)'])}±{int(df.loc['std']['Execution Time (s)'])}"
+    max_f = f"{df.loc['max']['Fit']:5.4f}"
+    mux = pd.MultiIndex.from_product([[network], ["Max", "Avg. Mod", "Time (s)"]])
+    se = pd.DataFrame(
+        data=[[max_f, fit, time]],
+        # index=[rootdirs[0].split("/")[1]],
+        index=[name],
+        columns=mux,
+    )
+
+    # se=pd.DataFrame([[1, 2]], index=["Sme"], columns=[["Email","Email"],["Avg","time"]])
     # print("\n",df.mean(),"\n",df.std(),"\n")
     # print(df,"\n")
 
-    return df
+    return se
 
 
 # %%
