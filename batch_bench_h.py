@@ -8,6 +8,7 @@ import json
 
 # from pathlib import Path
 import multi as m
+
 # import multiprocessing as mp
 from multiprocessing import Pool
 import time
@@ -17,7 +18,9 @@ import time
 # EMAIL:1700, YEAST:7000, POWER:20000
 # Il nome è usato anche per prendere il .gml con lo stesso identico nome
 full_list = (
-    [["email", "100"]] * 10 + [["yeast", "1000"]] * 5 + [["power", "5000"]] * 3
+    [["email", "100"]]
+    * 10
+    # + [["yeast", "1000"]] * 5 + [["power", "5000"]] * 3
 )
 n_process = 2  # Numero di processi contemporanei
 ######################
@@ -26,12 +29,20 @@ n_process = 2  # Numero di processi contemporanei
 def bench(arg):
     name = arg[0]
     c = arg[1]
-    path = f"./BB-hybridIA/{name}/{int(time.time()*1000000)}"
+    path = f"./BBp-hybridIA/{name}/{int(time.time()*1000000)}"
     m.prepare_folders(path)
 
     # MULTI_LEVEL
     print(f"benching {path}")
-    args = ["./hybrid-ia-probe", "-i", f"./networks/{name}.gml", "-t", "30000", "-c", f"{c}"]
+    args = [
+        "./hybrid-ia-probe",
+        "-i",
+        f"./networks/{name}.gml",
+        "-t",
+        "3000000",
+        "-c",
+        f"{c}",
+    ]
     # res = subprocess.run(args, capture_output=True, universal_newlines=True)  # 3.8 version
     res = subprocess.run(
         args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True

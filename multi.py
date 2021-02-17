@@ -338,74 +338,6 @@ def hybrid_multi_level(
     return res
 
 
-# Time in seconds, e.g. 5.38091952400282
-# %%
-# Create traceback dataframe
-# base_g = 0
-# last_g = levels
-# with open(f"./R/R{base_g}.txt", "r") as txt:
-#     arrRes = txt.read().split("\t")
-#     print(f"ADD {txt.name} -> {arrRes[:-5]}")
-#     rawR0 = arrRes[11]
-#     r0 = [pair.split(":") for pair in rawR0.split(",")]
-#     R0n = [int(val[0]) for val in r0]
-#     R0c = [int(val[1])+33 for val in r0]
-
-#     df = pd.DataFrame(R0c, index=R0n, columns=["R0"])
-
-# for i in range(base_g+1, last_g):
-#     with open(f"./R/R{i}.txt", "r") as txt:
-#         arrRes = txt.read().split("\t")
-#         print(f"ADD {txt.name} -> {arrRes[:-5]}")
-
-#         rawR0 = arrRes[11]
-#         r0 = [pair.split(":") for pair in rawR0.split(",")]
-#         R0n = [int(val[0]) for val in r0]
-#         R0c = [int(val[1])+33 for val in r0]
-
-#         df1 = pd.DataFrame(R0c, index=R0n, columns=[f"R{i}"])
-
-#         df = df.join(df1, on=f"R{i-1}", lsuffix='_caller', rsuffix='_other')
-# df = df.sort_index()
-# print(df.head())
-# df.to_csv("./trace.csv")
-
-
-# %%
-# # SIMPLE GRAPH PLOT (DOESN'T SHOW SELF-LOOPS)
-# for g in range(20):  # Change here to choose the Gs to show
-#     G10 = nx.read_gml(f'./G/G{g}.gml', label='id')
-#     plt.figure(figsize=(20, 8))
-#     plt.subplot(121)
-#     pos = nx.spring_layout(G10, seed=1)
-#     nx.draw_networkx_labels(G10, pos, font_size=20, font_family='sans-serif')
-#     nx.draw(G10, pos)
-
-#     plt.subplot(122)
-#     pos = nx.spring_layout(G10, seed=1)
-#     nx.draw_networkx_nodes(G10, pos)
-#     nx.draw_networkx_labels(G10, pos, font_size=20, font_family='sans-serif')
-#     nx.draw_networkx_edges(G10, pos)
-#     nx.draw_networkx_edge_labels(
-#         G10, pos, font_size=20, font_family='sans-serif')
-#     plt.show()
-
-#     # weight check
-#     s = 0
-#     for (u, v, w) in G10.edges().data('weight', default=1):
-#         s += w
-#     print(s)
-
-# %%
-# TEST AVVIO COMANDO
-# args = ["./hybrid-ia", "-i", "./test.gml", "-t", "2"]
-# args1 = ["ls", "-l"]
-# res = subprocess.run(args, capture_output=True)
-# print(res.stdout.decode('UTF-8'))
-# print(res.stdout.decode('UTF-8').split("\t")[11])
-# rawRes = res.stdout.decode('UTF-8').split("\t")[11]
-
-# %%
 def int_R_ext_degree(node, community, G, R):
     """
     Calculate internal/external degree of a node given the community structure
@@ -437,7 +369,9 @@ def ratio_internal_degree(node, community, G, R):
     return in_deg / deg
 
 
-def explode_community_beta(G0, trace, explode_id: [], i: int, min_ratio: float = 1):
+def explode_community_beta(
+    G0, trace, explode_id: list, i: int, min_ratio: float = 1, verbose=False
+):
     """
     Returns a graph where each community of "G0" is reduced to a single node,
     except the selected communities that will have all nodes with int/ext
@@ -452,6 +386,8 @@ def explode_community_beta(G0, trace, explode_id: [], i: int, min_ratio: float =
         id for the community to explode, if [], will explode all
     i: int
         number of the level to use for explosion
+    v: bool
+        Verbose
 
     Returns
     -------
@@ -467,8 +403,8 @@ def explode_community_beta(G0, trace, explode_id: [], i: int, min_ratio: float =
     # fixed_R0 = {k: (k if (v in explode_id) and int_R_ext_degree(k, v, G0, R_base) <1   else v) for k,
     #             v in R_base.items()}
     for k, v in R_base.items():
-        if not (explode_id) or v in explode_id:
-            if ratio_internal_degree(k, v, G0, R_base) > min_ratio:
+        if not (explode_id) or v in explode_id: #Explode if explode id is [], oe if v is in
+            if min_ratio <= 1 and ratio_internal_degree(k, v, G0, R_base) > min_ratio:
                 # keep, add number to avoid problems with trace
                 fixed_R0[k] = v + (R_base_max - R_base_len) + 1
                 i_count += 1
@@ -478,25 +414,29 @@ def explode_community_beta(G0, trace, explode_id: [], i: int, min_ratio: float =
         else:
             fixed_R0[k] = v  # keep
             i_count += 1
-
-    print(f"({i_count}) ){e_count}(", end=" ")
+    if verbose:
+        print(f"({i_count}) ){e_count}(", end=" ")
     return merge_nodes(G0, fixed_R0)
 
 
 def hybrid_multi_level_beta(
     graph,
+    to_run: str = "./hybrid-ia",
     smart_merge: bool = False,
+    merge_min_ratio:float=0.5,
     mod_goal: float = None,
     max_time: int = None,
     max_levels=9999999,
     hybrid_it: str = "",
     explosion: int = 1,
     try_close: int = 1,
-    min_ratio: float = 0.5,
+    last_try: bool = True,
+    expl_min_ratio: float = 0.5,
     add_args=[],
+    verbose: bool = False,
     path=".",
     seed=None,
-    save_intermediate=False
+    save_intermediate=False,
 ):
     """
     Implements multi-level to the immunologic approach,
@@ -504,25 +444,45 @@ def hybrid_multi_level_beta(
 
     Parameters
     ----------
-    graph: path to gml file
-        The original graph where to find the communities
+    graph: str
+        Path to gml file the original graph where to find the communities
+    to_run: str
+        Path to binaries of the base algorithm
+    smart_merge: bool
+        If True will not merge the entire community but only a subset of node based on 
+        "merge_min_ratio" value
+    merge_min_ratio: float
+        Ratio of internal links of a node, nodes with ratio > "merge_min_ratio" will 
+        be fused with Smart Merge  
+    mod_goal: float
+        Value of Modularity to reach
+    max_time: int
+        Max time of execution in seconds
     max_levels: int
         How many times the communities will be computed then reduced,
         (in other words, the number of iterations)
     hybrid_it: string
-        Can be a string containing the number of iteration or "linear" method
-    explosion: bool
-        If True the function will try to maximize the result with community explosion
+        Can be a string containing the number of iteration or "linear","i_linear" method
+    explosion: int
+        If >0 the explosion optimization will explode n="explosion" community
     try_close: int
-        If 0 the function will stop at max number of iteration defined in "max_levels",
         If "try_close" is higher than 0 in case of modularity stagnation the function will try to explode
         each community, from the best result, "try_close" times then stops if no new max modularity is found  
+    expl_min_ratio: float
+        Ratio of internal links of a node, nodes with ratio > "merge_min_ratio" will 
+        be kept fused when a community is exploded, if > 1 all node will be exploded 
+    last_try: bool
+        If True before closing for stagnation, a last explosion of all communities will be attempted
     add_args: list
-        A list of parameter for hybrid-ia
+        A list of additional parameter for the executable
+    verbose: bool
+        If True, verbose
     path: string
         The path where the results will be saved
-    save_trace: bool
-        If True save the traceback on csv file 
+    seed: int
+        The seed used for the multi-level, remember to set also the seed for the binaries using add_args
+    save_intermediate: bool
+        If True save all intermediate step and grap configurations, WARNING Big sizes expected 
     """
     saved_args = locals()
     t_start = timer()
@@ -542,20 +502,19 @@ def hybrid_multi_level_beta(
     best_1R = -1
     explode_pool = []
     h_it = []
-    last_try = True
     old_explosion = explosion
 
     # Needed to give communities non-conflicting ids with original nodes
     n_nodes = max(G0.nodes())
-
-    print(
-        "Graph".rjust(5),
-        "Nodes".rjust(5),
-        "Edges".rjust(5),
-        "Comm".ljust(5),
-        "Fit".ljust(8),
-        "Ex Time".rjust(5),
-    )
+    if verbose:
+        print(
+            "Graph".rjust(5),
+            "Nodes".rjust(5),
+            "Edges".rjust(5),
+            "Comm".ljust(5),
+            "Fit".ljust(8),
+            "Ex Time".rjust(5),
+        )
     for i in range(max_levels):  # Each loop: G"i" graph -compute-> create G"i+1"
         t_loop = timer()
         # Preparing args, computing hybrid-ia and gettin results
@@ -564,7 +523,7 @@ def hybrid_multi_level_beta(
                 h_it = ["-t", f"{G0.number_of_nodes()}"]
             elif hybrid_it == "i_linear":
                 # n_it = original_G0.number_of_nodes() + 10 - G0.number_of_nodes()
-                n_it = int((original_G0.number_of_nodes()/G0.number_of_nodes())*10)
+                n_it = int((original_G0.number_of_nodes() / G0.number_of_nodes()) * 10)
                 h_it = [
                     "-t",
                     f"{n_it if n_it <100 else 100 }",
@@ -572,52 +531,65 @@ def hybrid_multi_level_beta(
             else:
                 h_it = ["-t", hybrid_it]
 
-        args = ["./hybrid-ia", "-i", f"{path}/G/G{i if save_intermediate or i ==0 else 'f'}.gml"] + add_args + h_it
+        args = (
+            [
+                to_run,
+                "-i",
+                f"{path}/G/G{i if save_intermediate or i == 0 else 'f'}.gml",
+            ]
+            + add_args
+            + h_it
+        )
         # res = subprocess.run(args, capture_output=True) #3.8 version
         res = subprocess.run(args, stdout=subprocess.PIPE)  # 3.6 version
 
         # Saving Raw Output in R folder
-        with open(f"{path}/R/R{i}.txt", "w") as text_file:
-            print(f"{res.stdout.decode('UTF-8')}", file=text_file)
+        arrRes = res.stdout.decode("UTF-8").replace("\n", "")
+        with open(f"{path}/R.txt", "a") as text_file:
+            print(f"{arrRes}", file=text_file)
 
         # Results cleaning
-        arrRes = res.stdout.decode("UTF-8").replace("\n", "").split("\t")
-        print(
-            f"{'G'+str(i):5} {arrRes[1]:5} {arrRes[2]:5} {arrRes[-3]:5} {float(arrRes[9]):6f} {float(arrRes[-1]):3f} ",
-            end="",
-        )
+        arrRes = arrRes.split("\t")
+        if verbose:
+            print(
+                f"{'G'+str(i):5} {arrRes[1]:5} {arrRes[2]:5} {arrRes[-3]:5} {float(arrRes[9]):6f} {float(arrRes[-1]):3f} ",
+                end="",
+            )
 
         # Saving resulting communities & update support variables
-        rawR0 = arrRes[11]
         R0 = dict(
             (int(val[0]), int(val[1]) + n_nodes)
-            for val in [pair.split(":") for pair in rawR0.split(",")]
+            for val in [pair.split(":") for pair in arrRes[11].split(",")]
         )
-        trace = add_trace(i, R0, trace, R_i)  # Updating traceback dataframe
+        trace = add_trace(i, R0, trace, prev=R_i)  # Updating traceback dataframe
         R_i = None  # Clean after been used
-        fit_hist = fit_hist + [float(arrRes[9])]  # Update modularity history
-        best_R = -1 - (
-            (fit_hist[::-1].index(max(fit_hist))) - len(fit_hist)
-        )  # Latest best index
-        print(
-            len(trace[f"R{i}"].unique()), end="u "
-        )  # Unique communities found in trace
-        # print(R0)
 
-        # Creating exploding pool
-        if best_1R != fit_hist.index(max(fit_hist)):  # New Best
+        # Update modularity history
+        fit_hist = fit_hist + [float(arrRes[9])]
+
+        # Find latest best index
+        best_R = -1 - ((fit_hist[::-1].index(max(fit_hist))) - len(fit_hist))
+
+        # Print unique communities found in trace, Useful for debug Trace
+        # print(len(trace[f"R{i}"].unique()), end="u ")
+
+        # Creating exploding pool if new Best
+        if best_1R != fit_hist.index(max(fit_hist)):
             best_1R = fit_hist.index(max(fit_hist))
             explode_pool = list(trace[f"R{best_1R}"].unique()) * try_close
-            last_try = True
-            explosion = old_explosion
+            # Reset some values
+            if last_try:
+                last_try_check = True
+                explosion = old_explosion
 
         # Check if stagnating
+        # if check_close_condition(fit_hist):
         if len(fit_hist) > 1 and (fit_hist[-1] == fit_hist[-2]):
             # Check if explosion is needed, exit if pool is empty
             if explosion:
-                if not explode_pool:
-                    if last_try:
-                        last_try = False
+                if not explode_pool:  # If Explode Pool is empty
+                    if last_try_check:
+                        last_try_check = False
                         explode_pool = list(trace[f"R{best_1R}"].unique())
                         explosion = len(explode_pool)
                     else:
@@ -633,13 +605,19 @@ def hybrid_multi_level_beta(
                     if len(list(set(explode_pool))) >= explosion
                     else len(list(set(explode_pool))),
                 )
-                print(f"R{R_i} -> G{i+1} expl{exploding_comm} ", end="")
+                if verbose:
+                    print(f"R{R_i} -> G{i+1} expl{exploding_comm} ", end="")
                 # display(trace)
                 if try_close:
                     for c in exploding_comm:
                         explode_pool.remove(c)
                 G1 = explode_community_beta(
-                    original_G0, trace, exploding_comm, R_i, min_ratio=min_ratio,
+                    original_G0,
+                    trace,
+                    exploding_comm,
+                    R_i,
+                    min_ratio=expl_min_ratio,
+                    verbose=verbose,
                 )
             else:
                 time_hist += [timer() - t_start]  # Save Time_hist
@@ -647,11 +625,12 @@ def hybrid_multi_level_beta(
                 break
         elif smart_merge:
             G1 = explode_community_beta(
-                original_G0, trace, explode_id=[], i=i, min_ratio=min_ratio,
+                original_G0, trace, explode_id=[], i=i, min_ratio=merge_min_ratio, verbose=verbose
             )
         else:
             G1 = merge_nodes(G0, R0)
-            print(f"R{i} -> G{i+1}", end=" ")
+            if verbose:
+                print(f"R{i} -> G{i+1}", end=" ")
 
         if save_intermediate:
             write_gml(G1, f"{path}/G/G{i+1}.gml")
@@ -660,17 +639,21 @@ def hybrid_multi_level_beta(
         G0 = G1
 
         # Print Time and overhead
-        print(
-            f"{(timer()-float(arrRes[-1])-t_loop): 5.2f} {timer()-t_start : 5.2f} {h_it[1]}"
-        )  # \n
+        if verbose:
+            print(
+                f"{(timer()-float(arrRes[-1])-t_loop): 5.2f} {timer()-t_start : 5.2f} {h_it[1]}"
+            )  # \n
 
         # Save Time_hist
         time_hist += [timer() - t_start]
-
+        
+        # Check exit conditions
         if mod_goal is not None and mod_goal <= fit_hist[-1]:
+            time_hist += [timer() - t_start]
             print(f"CLOSING, Found modularity goal!")
             break
         if max_time is not None and max_time <= time_hist[-1]:
+            time_hist += [timer() - t_start]
             print(f"CLOSING, Max time reached!")
             break
 
@@ -685,7 +668,6 @@ def hybrid_multi_level_beta(
         trace.sort_index().to_csv(f"{path}/trace.csv")
     else:
         trace[f"R{best_R}"].sort_index().to_csv(f"{path}/trace.csv")
-        
 
     log.update(
         {
@@ -703,7 +685,3 @@ def hybrid_multi_level_beta(
 
     return log
 
-
-# %%
-def check_close_condition():
-    return

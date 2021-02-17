@@ -7,30 +7,94 @@ import importlib
 importlib.reload(m)
 ######################
 # Il nome è usato anche per prendere il .gml con lo stesso identico nome
-full_list = ["email"] * 2
-# + ["yeast"] * 50 + ["power"] * 50
+#IMMUNO
+# full_list = [["email", 1200]] * 50 + [["yeast", 2400]] * 50 + [["power", 3600]] * 50
+#HYBRID
+# full_list = [["email", 120]] * 50 + [["yeast", 900]] * 50 + [["power", 3600]] * 50
+
+# CUSTOM
+# full_list = [["email", 10]] * 2 
+# + [["yeast", None]] * 50 + [["power", None]] * 50
 
 n_process = 2  # Numero di processi contemporanei
 ######################
 
 
-def bench(name):
+def bench(arg):
+    name = arg[0]
+    max_time = arg[1]
     # MULTI_LEVEL
-    # add_arg = ["-t", "1000"]
     res = m.hybrid_multi_level_beta(
-        f"./networks/{name}.gml",
-        # max_levels=100,
-        # max_time=750,
-        smart_merge=True,
-        # mod_goal= 0.2
-        hybrid_it="i_linear",
-        # add_args=add_arg,
-        explosion=0,
-        try_close=0,
-        min_ratio=0.5,
-        seed=None,
-        save_intermediate=True,
-        path=f"./BB-hybridIA-smartMerge/{name}/{int(time.time()*1000000)}",
+################# MULTILEVEL RANDOM FULL EXPLOSION ##################
+        # ## IMPORTANT
+        # graph=f"./networks/{name}.gml",
+        # to_run="./immuno-ia", #EXEC NAME
+        # ## HARD LIMITS
+        # # max_levels=100,
+        # # mod_goal= 0.2
+        # max_time=max_time,
+        # ## TYPE OF MERGE
+        # smart_merge=False,
+        # hybrid_it="1000",
+        # ## ESPLOSIONI
+        # explosion=1,
+        # try_close=999, #To enforce time limit
+        # last_try=False,
+        # expl_min_ratio=1.5, #Full explosion
+        # ## UTILITY
+        # # add_args=add_arg,
+        # seed=None,
+        # save_intermediate=False,
+        # verbose=False,
+        # path=f"./BB-Immuno-RFullExplosion/{name}/{int(time.time()*1000000)}",
+
+################# MULTILEVEL RANDOM SMART EXPLOSION ##################
+        # ## IMPORTANT
+        # graph=f"./networks/{name}.gml",
+        # to_run="./immuno-ia", #EXEC NAME
+        # ## HARD LIMITS
+        # # max_levels=100,
+        # # mod_goal= 0.2
+        # max_time=max_time,
+        # ## TYPE OF MERGE
+        # smart_merge=False,
+        # hybrid_it="1000",
+        # ## ESPLOSIONI
+        # explosion=2,
+        # try_close=999, #To enforce time limit
+        # last_try=False, 
+        # expl_min_ratio=0.5,
+        # ## UTILITY
+        # # add_args=add_arg,
+        # seed=None,
+        # save_intermediate=False,
+        # verbose=False,
+        # path=f"./BB-Immuno-RSmartExplosion/{name}/{int(time.time()*1000000)}",
+
+################# MULTILEVEL SMART MERGE ##################
+        # ## IMPORTANT
+        # graph=f"./networks/{name}.gml",
+        # to_run="./hybrid-ia",
+        # ## HARD LIMITS
+        # # max_levels=100,
+        # # mod_goal= 0.2
+        # max_time=max_time,
+        # ## TYPE OF MERGE
+        # smart_merge=True,
+        # merge_min_ratio=0.5,
+        # hybrid_it="i_linear",
+        # ## ESPLOSIONI
+        # explosion=0,
+        # try_close=0,
+        # last_try=False, 
+        # ## UTILITY
+        # # add_args=add_arg,
+        # seed=None,
+        # save_intermediate=False,
+        # verbose=False,
+        # path=f"./BB-Hybrid-SmartMerge/{name}/{int(time.time()*1000000)}",
+
+
     )
 
 

@@ -36,7 +36,7 @@ def multiAverage(rootdir):
         break
     # dirs=[float(i) for i in dirs]
     # dirs = sorted(dirs, key=lambda x: int("".join([i for i in x if i.isdigit()])))
-    for i in tq.tqdm(dirs, desc=rootdir):
+    for i in tq.tqdm(dirs, desc=rootdir,leave=False):
         with open(f"./{rootdir}/{i}/res.json") as j:
             r = json.load(j)
         s = []
@@ -54,6 +54,21 @@ def multiAverage(rootdir):
                 # s = cache["cumulative_R_Time"] + [r["exe_time"]]
                 # best = cache["best_fit_hist"] + [r["best_fit"]]
                 # r["fit_hist"] += [r["best_fit"]]
+        elif os.path.exists(f"./{rootdir}/{i}/R.txt"):
+            with open(f"./{rootdir}/{i}/R.txt","r") as ff:
+                for ii in range(len(r["fit_hist"])):
+                    arr=ff.readline().replace("\n", "").split("\t")
+                    s += [(0 if not s else s[-1]) + float(arr[-1])]
+                    if not best:
+                        best += [float(arr[9])]
+                    else:
+                        if float(arr[9]) > best[-1]:
+                            best += [float(arr[9])]
+                        else:
+                            best += [best[-1]]
+            with open(f"./{rootdir}/{i}/cache.json", "w") as f:
+                json.dump({"cumulative_R_Time": s, "best_fit_hist": best}, f)
+
         else:
             for ii in range(len(r["fit_hist"])):
                 with open(f"./{rootdir}/{i}/R/R{ii}.txt") as t:
@@ -71,6 +86,7 @@ def multiAverage(rootdir):
 
         if "time_hist" in r:
             s = r["time_hist"]
+
         max_time = s[-1] if s[-1] > max_time else max_time
         min_time = s[0] if s[0] < min_time else min_time
         max_lev = len(r["fit_hist"]) if len(r["fit_hist"]) > max_lev else max_lev
@@ -150,7 +166,7 @@ def hyAverage(rootdir):
         break
     # dirs=[float(i) for i in dirs]
     # dirs = sorted(dirs, key=lambda x: int("".join([i for i in x if i.isdigit()])))
-    for i in tq.tqdm(dirs, desc=rootdir):
+    for i in tq.tqdm(dirs, desc=rootdir,leave=False):
 
         with open(f"{rootdir}/{i}/T_M.txt") as j:
             r = json.load(j)
