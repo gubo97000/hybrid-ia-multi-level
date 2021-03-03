@@ -386,7 +386,9 @@ def explode_community_beta(
         id for the community to explode, if [], will explode all
     i: int
         number of the level to use for explosion
-    v: bool
+    min_ratio: float
+        If internal/total degree is > min_ratio
+    verbose: bool
         Verbose
 
     Returns
@@ -649,11 +651,11 @@ def hybrid_multi_level_beta(
         
         # Check exit conditions
         if mod_goal is not None and mod_goal <= fit_hist[-1]:
-            time_hist += [timer() - t_start]
+            # time_hist += [timer() - t_start]
             print(f"CLOSING, Found modularity goal!")
             break
         if max_time is not None and max_time <= time_hist[-1]:
-            time_hist += [timer() - t_start]
+            # time_hist += [timer() - t_start]
             print(f"CLOSING, Max time reached!")
             break
 

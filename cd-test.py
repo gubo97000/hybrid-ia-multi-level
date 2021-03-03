@@ -41,15 +41,15 @@ print(lp_coms.newman_girvan_modularity())
 
 
 # %%
-tr = pd.read_csv("./Bench-Karate/1000/trace.csv", index_col=0).R16.to_dict()
+tr = pd.read_csv("t-runs/results-smart-merge/power/1614074403316572/trace.csv", index_col=0).iloc[:, 0].to_dict()
 
-clust = to_NC(tr, nx.read_gml("./Bench-Karate/1000/G/G0.gml", label="id"), "Hybrid-Ia")
+clust = to_NC(tr, nx.read_gml("./networks/power.gml", label="id"), "Hybrid-Ia")
 # clust=to_NC(par,nx.read_gml("./karate.gml"),"Hybrid-Ia")
 # clust = to_NC(par, g, "Hybrid-Ia")
 print(clust.newman_girvan_modularity())
-print(clust.edges_inside())
-print(clust.communities)
-print(clust.link_modularity)
+# print(clust.edges_inside())
+# print(clust.communities)
+# print(clust.link_modularity)
 
 
 # %%
