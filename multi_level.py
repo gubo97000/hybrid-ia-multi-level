@@ -14,6 +14,7 @@ import math
 from timeit import default_timer as timer
 import json
 from pathlib import Path
+from collections import defaultdict
 
 
 def merge_nodes(G, R):
@@ -69,6 +70,7 @@ def add_trace(i: int, R: dict, trace: pd.DataFrame, prev: int = None):
     pandas.DataFrame
         The new DataFrame
     """
+    print(R)
     prev = i - 1 if prev == None else prev
     Rn, Rc = R.keys(), R.values()
     df = pd.DataFrame(Rc, index=Rn, columns=[f"R{i}"])
@@ -200,6 +202,23 @@ def explode_community_beta(
     if verbose:
         print(f"({i_count}) ){e_count}(", end=" ")
     return merge_nodes(G0, fixed_R0)
+
+
+def fix_disconnected_comms(G: nx.Graph, comm_list: list, offset):
+    comm_idx = 0
+    fixed_res = {}
+
+    for nodes_in_comm in comm_list:
+        comm_G = G.subgraph(nodes_in_comm)
+        # if nx.is_connected(comm_G):
+        #     fixed_res.update(dict(zip(nodes_in_comm, [offset + comm_idx] * len(nodes_in_comm))))
+        #     comm_idx += 1
+        #     continue
+        for node_set in nx.connected_components(comm_G):
+            fixed_res.update(dict(zip(node_set, [offset + comm_idx] * len(node_set))))
+            comm_idx += 1
+    print(comm_idx, end=" ")
+    return fixed_res
 
 
 def hybrid_multi_level_beta(
@@ -345,6 +364,18 @@ def hybrid_multi_level_beta(
             for val in [pair.split(":") for pair in arrRes[11].split(",")]
         )
         trace = add_trace(i, R0, trace, prev=R_i)  # Updating traceback dataframe
+
+        # Fix Disconnected Comms
+        partition = trace.iloc[:, i].to_dict()
+        my_inverted_dict = defaultdict(list)
+        {my_inverted_dict[v].append(k) for k, v in partition.items()}
+        R0 = fix_disconnected_comms(
+            original_G0, list(my_inverted_dict.values()), n_nodes
+        )
+        trace = trace.drop([f"R{i}"], axis=1)
+        trace[f"R{i}"] = pd.Series(R0)
+        # trace = add_trace(i, R0, trace, prev=0,)
+
         R_i = None  # Clean after been used
 
         # Update modularity history

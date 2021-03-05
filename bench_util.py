@@ -36,7 +36,7 @@ def multiAverage(rootdir):
         break
     # dirs=[float(i) for i in dirs]
     # dirs = sorted(dirs, key=lambda x: int("".join([i for i in x if i.isdigit()])))
-    for i in tq.tqdm(dirs, desc=rootdir,leave=False):
+    for i in tq.tqdm(dirs, desc=rootdir,leave=True):
         with open(f"./{rootdir}/{i}/res.json") as j:
             r = json.load(j)
         s = []
@@ -166,7 +166,7 @@ def hyAverage(rootdir):
         break
     # dirs=[float(i) for i in dirs]
     # dirs = sorted(dirs, key=lambda x: int("".join([i for i in x if i.isdigit()])))
-    for i in tq.tqdm(dirs, desc=rootdir,leave=False):
+    for i in tq.tqdm(dirs, desc=rootdir,leave=True):
 
         with open(f"{rootdir}/{i}/T_M.txt") as j:
             r = json.load(j)
@@ -276,7 +276,7 @@ def batch_stats(rootdirs, network, name):
         # dirs=[float(i) for i in dirs]
         # dirs = sorted(dirs, key=lambda x: int("".join([i for i in x if i.isdigit()])))
         for i in tq.tqdm(dirs, desc=rootdir, leave=False):
-            if rootdir.split("/")[1] in ["bench-batch-hybrid", "BB-hybridIA"]:
+            if rootdir.split("/")[1] in ["bench-batch-hybrid", "BB-hybridIA","results-ia","results-hybridia"]:
                 with open(f"./{rootdir}/{i}/T_M.txt") as j:
                     r = json.load(j)
                 names += [i]

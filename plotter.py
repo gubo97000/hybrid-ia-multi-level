@@ -1,4 +1,5 @@
 # %%
+from IPython.core.display import display_html, display_markdown
 from IPython.display import display
 
 # from mpl_toolkits.mplot3d import Axes3D
@@ -49,7 +50,7 @@ def stat_table(networks, to_comp):
             else:
                 row = bu.batch_stats(f"{fold[0]}/{net.lower()}", net, fold[1])
         stat = pd.concat([stat, row])
-    display(stat)
+    # display(stat)
     return stat
 
 
@@ -68,7 +69,12 @@ def plot_compare(networks, to_compare, pdf=False):
         count += 1
 
         for fold in to_compare:
-            if fold[0] in ["./bench-batch-hybrid", "./BB-hybridIA"]:  # Pure
+            if fold[0] in [
+                "./bench-batch-hybrid",
+                "./BB-hybridIA",
+                "t-runs/results-ia",
+                "t-runs/results-hybridia",
+            ]:  # Pure
                 avg, log = bu.hyAverage(f"{fold[0]}/{network_name.lower()}")
                 for name, ex in log.items():
                     ax1.plot(
@@ -123,15 +129,62 @@ def plot_compare(networks, to_compare, pdf=False):
     return fig
 
 
+# %% FULL COMPARE
+plot_compare(
+    ["Email", "Yeast", "Power"],
+    [
+        ["BB/BB-Immuno", "xkcd:purple", "Mean Immunologic"],
+        ["BB/BB-Immuno-multiLevel", "xkcd:green", "Mean MultiLevel"],
+        ["BB/BB-Immuno-RSmartExplosion", "xkcd:red", "Mean Smart Explosion"],
+        ["BB/BB-hybridIA", "xkcd:orange", "Mean HybridIA"],
+        ["BB/BB-hybridIA-smartMerge", "xkcd:blue", "Mean HybridIA + Smart Merge"],
+
+        ["t-runs/results-ia", "xkcd:purple", "Immunologic"],
+        ["t-runs/results-random-explosion","xkcd:green","Immunologic + Random Explosion"],
+        ["t-runs/results-smart-explosion", "xkcd:red", "Immunologic + Smart Explosion"],
+        ["t-runs/results-hybridia", "xkcd:orange", "HybridIA"],
+        ["t-runs/results-smart-merge", "xkcd:blue", "HybridIA + Smart Merge"],
+        # ["test", "xkcd:green", "HybridIA + Smart Merge"],
+    ],
+    pdf="C_Full_Compare_Graph",
+)
+#%% FULL STAT TABLE
+pd.options.display.latex.repr = True
+pd.options.display.latex.repr = False
+networks = ["Email", "Yeast", "Power"]
+to_comp = [
+    # ["BB/BB-Immuno", "Immunologic"],
+    # ["BB/BB-Immuno-multiLevel", "Immunologic + M-L Explosion"],
+    # ["BB/BB-Immuno-RSmartExplosion", "Immunologic + M-L Smart Explosion"],
+    # ["BB/BB-hybridIA", "HybridIA"],
+    # ["BB/BB-hybridIA-smartMerge", "HybridIA + Smart Merge"],
+    # ["BB/BB-hybridIA-smartMerge-fix", "fix"],
+    ["t-runs/results-ia", "Immunologic"],
+    ["t-runs/results-random-explosion", "Immunologic + Random Explosion"],
+    ["t-runs/results-smart-explosion", "Immunologic + Smart Explosion"],
+    ["t-runs/results-hybridia", "HybridIA"],
+    ["t-runs/results-smart-merge", "HybridIA + Smart Merge"],
+]
+stat = stat_table(networks, to_comp)
+display(stat)
+
+# latex_str = stat.to_latex(caption=to_comp)
+html_str = stat.to_excel("./Plots/table.xlsx")
+
 # %% COMPARE IMMUNE
 plot_compare(
     ["Email", "Yeast", "Power"],
     [
-        ["./bench-batch-hybrid", "xkcd:purple", "Mean Immunologic"],
-        ["./bench-batch", "xkcd:green", "Mean MultiLevel"],
-        ["./bench-batch-beta", "xkcd:red", "Mean Smart Explosion"],
+        # ["./bench-batch-hybrid", "xkcd:purple", "Mean Immunologic"],
+        # ["./bench-batch", "xkcd:green", "Mean MultiLevel"],
+        # ["./bench-batch-beta", "xkcd:red", "Mean Smart Explosion"],
         # ["./BB-hybridIA", "xkcd:black", "Mean HybridIA"],
         # ["./BB-hybridIA-smartMerge1", "xkcd:blue", "Mean HybridIA + Smart Merge"],
+        ["t-runs/results-ia", "xkcd:purple", "Mean Immunologic"],
+        ["t-runs/results-random-explosion", "xkcd:green", "Mean MultiLevel"],
+        ["t-runs/results-smart-explosion", "xkcd:red", "Mean Smart Explosion"],
+        # ["t-runs/results-hybridia", "xkcd:orange", "Mean HybridIA"],
+        # ["t-runs/results-smart-merge", "xkcd:blue", "Mean HybridIA + Smart Merge"],
     ],
     pdf="Immune_Compare_Graph",
 )
@@ -142,28 +195,26 @@ plot_compare(
         # ["./bench-batch-hybrid", "xkcd:purple", "Mean Immunologic"],
         # ["./bench-batch", "xkcd:green", "Mean MultiLevel"],
         # ["./bench-batch-beta", "xkcd:red", "Mean Smart Explosion"],
-        ["./BB-hybridIA", "xkcd:black", "Mean HybridIA"],
-        ["./BB-hybridIA-smartMerge1", "xkcd:blue", "Mean HybridIA + Smart Merge"],
+        # ["./BB-hybridIA", "xkcd:black", "Mean HybridIA"],
+        # ["./BB-hybridIA-smartMerge1", "xkcd:blue", "Mean HybridIA + Smart Merge"],
+        # ["t-runs/results-ia", "xkcd:purple", "Mean Immunologic"],
+        # ["t-runs/results-random-explosion", "xkcd:green", "Mean MultiLevel"],
+        # ["t-runs/results-smart-explosion", "xkcd:red", "Mean Smart Explosion"],
+        ["t-runs/results-hybridia", "xkcd:orange", "Mean HybridIA"],
+        ["t-runs/results-smart-merge", "xkcd:blue", "Mean HybridIA + Smart Merge"],
     ],
-    pdf="Smart_Merge_Compare_Graph",
+    pdf="Hybrid_Compare_Graph",
 )
 
 
 # %% FIXING SMART MERGE
 importlib.reload(bu)
-names = ["Email", 
-"Yeast", "Power"
-]
+names = ["Email", "Yeast", "Power"]
 final_pdf_name = False
 # final_pdf_name = f"./Plots/No_Bomb_Graph{names}"
 #######
 
-fig=plot_compare(
-    names,
-    [
-        ["./BB-hybridIA", "xkcd:black", "Mean HybridIA"],
-    ],
-)
+fig = plot_compare(names, [["./BB-hybridIA", "xkcd:black", "Mean HybridIA"],],)
 #######
 
 plt.figure(fig.number)
@@ -174,11 +225,11 @@ for pdf_name in names:
 
     ####Fix####
     avg, log = bu.multiAverage(f"./BB-hybridIA-smartMerge1/{pdf_name.lower()}")
-    time,bf=[],[]
+    time, bf = [], []
     for name, ex in log.items():
-        f_h=ex["res"]["fit_hist"]
-        c=0
-######## No improvement for n turn (No good)
+        f_h = ex["res"]["fit_hist"]
+        c = 0
+        ######## No improvement for n turn (No good)
         # for i in range(len(f_h)):
         #     if i>0:
         #         if f_h[i]>f_h[i-1]:
@@ -186,27 +237,29 @@ for pdf_name in names:
         #     c += 1
         #     if c==5:
         #         break
-######## Check if value are close 
+        ######## Check if value are close
         # for i in range(len(f_h)):
         #     if i>30:
         #         if math.isclose(f_h[i],f_h[i-30], rel_tol=1e-05):
         #             break
-######## Time condition
+        ######## Time condition
         for i in range(len(f_h)):
             if ex["h_time"][i] > 6000:
                 break
-        
-        time+=[ex["h_time"][i]]
-        bf+=[max(ex["h_best_fit"][:i])]
-        
-        ax1.plot(ex["h_time"][:i], ex["h_best_fit"][:i], c=color_light("xkcd:green", 1.8))
 
-    # Save Fixed 
-    filename = f"./BB-h-sm-fix/{pdf_name.lower()}/fixed/fix.json" 
+        time += [ex["h_time"][i]]
+        bf += [max(ex["h_best_fit"][:i])]
+
+        ax1.plot(
+            ex["h_time"][:i], ex["h_best_fit"][:i], c=color_light("xkcd:green", 1.8)
+        )
+
+    # Save Fixed
+    filename = f"./BB-h-sm-fix/{pdf_name.lower()}/fixed/fix.json"
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, "w") as f:
-        json.dump({"time":time,"bf":bf},f)
-################################################################
+        json.dump({"time": time, "bf": bf}, f)
+    ################################################################
 
     ax1.set_xlabel("Time (s)")
     # ax1.set_xlabel("Time (s)", loc="right") #Only on matplotlib 3.3.3
@@ -224,54 +277,45 @@ plt.show()
 
 
 # GET FIxed STAT TABLE
-pd.options.display.latex.repr=True
-pd.options.display.latex.repr=False
+pd.options.display.latex.repr = True
+pd.options.display.latex.repr = False
 networks = ["Email", "Yeast", "Power"]
 to_comp = [
-        # ["./bench-batch-hybrid", "Immunologic"],
-        # ["./bench-batch", "MultiLevel"],
-        # ["./bench-batch-beta", "Smart Explosion"],
-        # ["./BB-hybridIA", "HybridIA"],
-        # ["./BB-hybridIA-smartMerge", "HybridIA + Smart Merge"],
-        ["./BB-hybridIA-smartMerge1", "HybridIA + Smart Merge"],
-        ["./BB-h-sm-fix", "fix"],
-
-    ]
+    # ["./bench-batch-hybrid", "Immunologic"],
+    # ["./bench-batch", "MultiLevel"],
+    # ["./bench-batch-beta", "Smart Explosion"],
+    # ["./BB-hybridIA", "HybridIA"],
+    # ["./BB-hybridIA-smartMerge", "HybridIA + Smart Merge"],
+    ["./BB-hybridIA-smartMerge1", "HybridIA + Smart Merge"],
+    ["./BB-h-sm-fix", "fix"],
+]
 stat = stat_table(networks, to_comp)
 
 #%% GET STAT TABLE  #############################################
-pd.options.display.latex.repr=True
-pd.options.display.latex.repr=False
+pd.options.display.latex.repr = True
+pd.options.display.latex.repr = False
 networks = ["Email", "Yeast", "Power"]
 to_comp = [
-        ["./bench-batch-hybrid", "Immunologic"],
-        ["./bench-batch", "Immunologic + M-L Explosion"],
-        ["./bench-batch-beta", "Immunologic + M-L Smart Explosion"],
-        ["./BB-hybridIA", "HybridIA"],
-        # ["./BB-hybridIA-smartMerge", "HybridIA + Smart Merge"],
-        ["./BB-hybridIA-smartMerge1", "HybridIA + Smart Merge"],
-        # ["./BB-h-sm-fix", "fix"],
-
-    ]
+    ["./bench-batch-hybrid", "Immunologic"],
+    ["./bench-batch", "Immunologic + M-L Explosion"],
+    ["./bench-batch-beta", "Immunologic + M-L Smart Explosion"],
+    ["./BB-hybridIA", "HybridIA"],
+    # ["./BB-hybridIA-smartMerge", "HybridIA + Smart Merge"],
+    ["./BB-hybridIA-smartMerge1", "HybridIA + Smart Merge"],
+    # ["./BB-h-sm-fix", "fix"],
+]
 stat = stat_table(networks, to_comp)
 
 # latex_str = stat.to_latex(caption=to_comp)
 
 #%% No Explosion Plot #########################################################
 importlib.reload(bu)
-names = ["Email", 
-# "Yeast", "Power"
-]
+names = ["Email", "Yeast", "Power"]
 final_pdf_name = False
 final_pdf_name = f"./Plots/No_Bomb_Graph{names}"
 #######
 
-fig=plot_compare(
-    names,
-    [
-        ["./bench-batch-hybrid", "xkcd:purple", "Immunologic"],
-    ],
-)
+fig = plot_compare(names, [["./bench-batch-hybrid", "xkcd:purple", "Immunologic"],],)
 # plt.figure(figsize=(10, len(names) * 5))
 plt.figure(fig.number)
 count = 1
@@ -290,7 +334,9 @@ for pdf_name in names:
         # all_stop_i+=[stop_i+1]
         # ax1.plot(ex["h_time"], ex["res"]["fit_hist"])
         ax1.plot(
-            ex["h_time"][: stop_i + 1], ex["h_best_fit"][: stop_i + 1], c=color_light("xkcd:green", 1.8)
+            ex["h_time"][: stop_i + 1],
+            ex["h_best_fit"][: stop_i + 1],
+            c=color_light("xkcd:green", 1.8),
         )
 
         all_max_mod += [ex["h_best_fit"][stop_i + 1]]
@@ -314,27 +360,28 @@ if final_pdf_name:
 
 
 # %%
-rootdir="./bench-batch-beta/email"
-for subdir, dirs, files in os.walk(rootdir):
-    break
-for i in tq.tqdm(dirs, desc=rootdir,leave=False):
-    with open(f"./{rootdir}/{i}/res.json") as j:
-        r = json.load(j)
-    open(f"./{rootdir}/{i}/R.txt", 'w').close()
-    for ii in range(len(r["fit_hist"])):
-        with open(f"./{rootdir}/{i}/R/R{ii}.txt") as t:
-            arr = t.read().replace("\n", "")
-            with open(f"./{rootdir}/{i}/R.txt","a") as ff:
-                ff.write(arr+"\n")
+for n in ["email", "yeast", "power"]:
+    rootdir = f"./bench-batch/{n}"
+    for subdir, dirs, files in os.walk(rootdir):
+        break
+    for i in tq.tqdm(dirs, desc=rootdir, leave=False):
+        with open(f"./{rootdir}/{i}/res.json") as j:
+            r = json.load(j)
+        open(f"./{rootdir}/{i}/R.txt", "w").close()
+        for ii in range(len(r["fit_hist"])):
+            with open(f"./{rootdir}/{i}/R/R{ii}.txt") as t:
+                arr = t.read().replace("\n", "")
+                with open(f"./{rootdir}/{i}/R.txt", "a") as ff:
+                    ff.write(arr + "\n")
 # %%
-rootdir="./bench-batch-beta/email"
+rootdir = "./bench-batch-beta/email"
 for subdir, dirs, files in os.walk(rootdir):
     break
-for i in tq.tqdm(dirs, desc=rootdir,leave=False):
+for i in tq.tqdm(dirs, desc=rootdir, leave=False):
     with open(f"./{rootdir}/{i}/res.json") as j:
         r = json.load(j)
-        with open(f"./{rootdir}/{i}/R.txt","r") as ff:
+        with open(f"./{rootdir}/{i}/R.txt", "r") as ff:
             for ii in range(len(r["fit_hist"])):
-                arr=ff.readline().replace("\n", "").split("\t")
+                arr = ff.readline().replace("\n", "").split("\t")
                 print(len(arr))
 # %%

@@ -41,7 +41,7 @@ print(lp_coms.newman_girvan_modularity())
 
 
 # %%
-tr = pd.read_csv("t-runs/results-smart-merge/power/1614074403316572/trace.csv", index_col=0).iloc[:, 0].to_dict()
+tr = pd.read_csv("test/power/1614850809691659/trace.csv", index_col=0).iloc[:, 533].to_dict()
 
 clust = to_NC(tr, nx.read_gml("./networks/power.gml", label="id"), "Hybrid-Ia")
 # clust=to_NC(par,nx.read_gml("./karate.gml"),"Hybrid-Ia")

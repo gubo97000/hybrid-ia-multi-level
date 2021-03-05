@@ -4,20 +4,20 @@ import networkx as nx
 import pandas as pd
 from gml import write_gml
 
+#%%
 
-def add_comm(G, tr):
-    return
-
+# rootdir="test/power/1614850809691659"
+rootdir="Profiler"
+G = nx.read_gml(
+    "networks/email.gml", label="id"
+)
 #MultiLevel
 tr = (
     pd.read_csv(
-        "t-runs/results-smart-merge/power/1614074403316572/trace.csv", index_col=0
+        f"{rootdir}/trace.csv", index_col=0
     )
-    .iloc[:, 0]
+    .iloc[:, 10]
     .to_dict()
-)
-G = nx.read_gml(
-    "networks/power.gml", label="id"
 )
 nx.set_node_attributes(G, tr, name="comm")
 write_gml(G,"./GT.gml")
@@ -43,5 +43,5 @@ G = nx.read_gml(
     "networks/power.gml", label="id"
 )
 nx.set_node_attributes(G, tr, name="comm")
-write_gml(G,"./GT.gml")
+write_gml(G,"./GTh.gml")
 # %%

@@ -1,5 +1,5 @@
 # %%
-import multi as m
+import multi_level as m
 from multiprocessing import Pool
 import time
 import importlib
@@ -13,7 +13,7 @@ importlib.reload(m)
 # full_list = [["email", 120]] * 50 + [["yeast", 900]] * 50 + [["power", 3600]] * 50
 
 # CUSTOM
-# full_list = [["email", 10]] * 2 
+full_list = [["power", 3600]] * 2 
 # + [["yeast", None]] * 50 + [["power", None]] * 50
 
 n_process = 2  # Numero di processi contemporanei
@@ -72,27 +72,28 @@ def bench(arg):
         # path=f"./BB-Immuno-RSmartExplosion/{name}/{int(time.time()*1000000)}",
 
 ################# MULTILEVEL SMART MERGE ##################
-        # ## IMPORTANT
-        # graph=f"./networks/{name}.gml",
-        # to_run="./hybrid-ia",
-        # ## HARD LIMITS
-        # # max_levels=100,
-        # # mod_goal= 0.2
-        # max_time=max_time,
-        # ## TYPE OF MERGE
-        # smart_merge=True,
-        # merge_min_ratio=0.5,
-        # hybrid_it="i_linear",
-        # ## ESPLOSIONI
-        # explosion=0,
-        # try_close=0,
-        # last_try=False, 
-        # ## UTILITY
-        # # add_args=add_arg,
-        # seed=None,
-        # save_intermediate=False,
-        # verbose=False,
-        # path=f"./BB-Hybrid-SmartMerge/{name}/{int(time.time()*1000000)}",
+        ## IMPORTANT
+        graph=f"./networks/{name}.gml",
+        to_run="./hybrid-ia",
+        ## HARD LIMITS
+        # max_levels=100,
+        # mod_goal= 0.2
+        max_time=max_time,
+        ## TYPE OF MERGE
+        smart_merge=True,
+        merge_min_ratio=0.5,
+        hybrid_it="i_linear",
+        ## ESPLOSIONI
+        explosion=2,
+        try_close=1,
+        last_try=False,
+        expl_min_ratio=1.5, 
+        ## UTILITY
+        # add_args=add_arg,
+        seed=None,
+        save_intermediate=True,
+        verbose=True,
+        path=f"./test/{name}/{int(time.time()*1000000)}",
 
 
     )
