@@ -5,6 +5,7 @@ import pandas as pd
 from collections import defaultdict
 from cdlib import evaluation, algorithms
 import json
+import tqdm.notebook as tq
 
 
 def to_NC(partition, graph, name):
@@ -22,8 +23,11 @@ def get_best_partition(path):
 
 
 def find_mod(g, it):
+    """
+    Find Louvain modularity
+    """
     res = -2
-    for i in range(it):
+    for i in tq.tqdm(range(it), leave=False):
         lp_coms = algorithms.louvain(g, randomize=True)
         res = (
             lp_coms.newman_girvan_modularity().score
@@ -41,7 +45,7 @@ print(lp_coms.newman_girvan_modularity())
 
 
 # %%
-tr = pd.read_csv("test/power/1614850809691659/trace.csv", index_col=0).iloc[:, 533].to_dict()
+tr = pd.read_csv("test/power/1615159868223111/trace.csv", index_col=0).iloc[:, 0].to_dict()
 
 clust = to_NC(tr, nx.read_gml("./networks/power.gml", label="id"), "Hybrid-Ia")
 # clust=to_NC(par,nx.read_gml("./karate.gml"),"Hybrid-Ia")
@@ -52,16 +56,17 @@ print(clust.newman_girvan_modularity())
 # print(clust.link_modularity)
 
 
-# %%
-with open(f"./Bench-Email/1000/res.json") as j:
+# %% Vs LOUVAIN, CHECK IF LOST MODULARITY
+dir=f"t-runs/results-smart-merge/power/1614074403316572"
+with open(f"{dir}/res.json") as j:
     r = json.load(j)
 
-for i in range(len(r["fit_hist"])):
-    with open(f"./Bench-Email/1000/R/R{i}.txt") as t:
-        arr_r = t.read().replace("\n", "").split("\t")
-        print(f"{int(arr_r[1]):5d} {float(arr_r[9]):2.5f} ", end="", flush=True)
-    r = find_mod(nx.read_gml(f"./Bench-Email/1000/G/G{i}.gml"), 20)
-    print(f" {r['mod']:2.5f} {r['mod']/float(arr_r[9]):2.5f}")
+    # for i in range(0,len(r["fit_hist"]),20):
+    for i in [0,"f"]:
+        G=nx.read_gml(f"{dir}/G/G{i}.gml")
+        re = find_mod(G, 5)
+        # print(f"{i} {G.number_of_nodes()} {r['fit_hist'][i]} {re['mod']:2.5f} {re['mod']/float(r['fit_hist'][i]):2.5f}")
+        print(f"{i} {G.number_of_nodes()} {r['fit_hist'][-1]} {re['mod']:2.5f} {re['mod']/float(r['fit_hist'][-1]):2.5f}")
 
 # %% NORMALIZED MUTUAL INFORMATION
 g = nx.read_gml("./networks/email.gml", label="id")
@@ -74,4 +79,10 @@ evaluation.normalized_mutual_information(lp_coms, hy_coms)
 # %%
 print(lp_coms.newman_girvan_modularity())
 print(hy_coms.newman_girvan_modularity())
+# %%
+partition = pd.read_csv("test/power/1615159868223111/trace.csv", index_col=0).iloc[:, 0].to_dict()
+my_inverted_dict = defaultdict(list)
+{my_inverted_dict[v].append(k) for k, v in partition.items()}
+
+nx.algorithms.community.quality.modularity(nx.read_gml("./networks/power.gml", label="id"),list(my_inverted_dict.values()))
 # %%

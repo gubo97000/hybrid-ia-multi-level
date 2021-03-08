@@ -48,7 +48,9 @@ def merge_nodes(G, R):
     return G1
 
 
-def add_trace(i: int, R: dict, trace: pd.DataFrame, prev: int = None):
+def add_trace(
+    i: int, R: dict, trace: pd.DataFrame, after_expl_R=None, prev: int = None
+):
     """
     Returns a dataframe to traceback from any level's communities the original nodes,
     giving an empty dataframe will return the dataframe with indexes the original nodes received from R0
@@ -70,31 +72,27 @@ def add_trace(i: int, R: dict, trace: pd.DataFrame, prev: int = None):
     pandas.DataFrame
         The new DataFrame
     """
-    print(R)
     prev = i - 1 if prev == None else prev
-    Rn, Rc = R.keys(), R.values()
-    df = pd.DataFrame(Rc, index=Rn, columns=[f"R{i}"])
-    # print("\n", df)
-    if trace.empty:
-        return df
-    else:
-        df1 = trace.join(df, on=f"R{prev}")
-        # Variable for speed up
-        prev_R = trace[f"R{prev}"]
-        max_prev_R = max(prev_R)
-        # key, val=list(zip(*df1[f"R{i}"].items()))
-        # list(map(lambda k,v:_fix_nan(k,v, df, prev_R, max_prev_R,i,df1), key, val))
-        for key, val in df1[f"R{i}"].iteritems():
-            if math.isnan(val):
-                if key not in df[f"R{i}"]:
-                    df1[f"R{i}"][key] = df[f"R{i}"][
-                        prev_R[key] + max_prev_R - len(prev_R) + 1
-                    ]
-                else:
-                    df1[f"R{i}"][key] = df[f"R{i}"][key]
-                # df1[f"R{i}"][key] = "Nan"
+    R0_df = pd.DataFrame(index=R.keys(), data=R.values(), columns=[f"R{i}"])
+    # print("\n", new_df)
 
-        return df1.astype("int64")
+    if after_expl_R:  # Add result after explosion, normal join causes NaN
+        after_expl_df = pd.DataFrame(
+            index=after_expl_R.keys(), data=after_expl_R.values(), columns=[f"R"]
+        )
+
+        joined_df = after_expl_df.join(
+            R0_df, on=f"R"
+        )  # Use topology after explosion to find comm for each original node
+        trace[f"R{i}"] = joined_df[f"R{i}"]
+        return trace.astype("int64")
+    elif trace.empty:
+        return R0_df.astype("int64")
+    else:
+        joined_df = trace.join(
+            R0_df, on=f"R{prev}"
+        )  # Use topology of previous result to find comm for each original node
+        return joined_df.astype("int64")
 
 
 def prepare_folders(path="."):
@@ -189,22 +187,30 @@ def explode_community_beta(
         if (
             not (explode_id) or v in explode_id
         ):  # Explode if explode id is [], oe if v is in
-            if min_ratio <= 1 and ratio_internal_degree(k, v, G0, R_base) > min_ratio:
-                # keep, add number to avoid problems with trace
-                fixed_R0[k] = v + (R_base_max - R_base_len) + 1
+            if min_ratio < 0 or (
+                min_ratio <= 1 and ratio_internal_degree(k, v, G0, R_base) > min_ratio
+            ):
+                # keep in comm
+                fixed_R0[k] = v
+                # + (R_base_max - R_base_len) + 1
                 i_count += 1
             else:
                 fixed_R0[k] = k  # expl
                 e_count += 1
         else:
-            fixed_R0[k] = v  # keep
+            fixed_R0[k] = v  # keep in comm
             i_count += 1
     if verbose:
         print(f"({i_count}) ){e_count}(", end=" ")
-    return merge_nodes(G0, fixed_R0)
+    return merge_nodes(G0, fixed_R0), fixed_R0
 
 
-def fix_disconnected_comms(G: nx.Graph, comm_list: list, offset):
+def fix_disconnected_comms(G: nx.Graph, trace: pd.DataFrame, i: int, offset):
+    partition = trace.iloc[:, i].to_dict()
+    my_inverted_dict = defaultdict(list)
+    {my_inverted_dict[v].append(k) for k, v in partition.items()}
+    comm_list = list(my_inverted_dict.values())
+
     comm_idx = 0
     fixed_res = {}
 
@@ -217,8 +223,32 @@ def fix_disconnected_comms(G: nx.Graph, comm_list: list, offset):
         for node_set in nx.connected_components(comm_G):
             fixed_res.update(dict(zip(node_set, [offset + comm_idx] * len(node_set))))
             comm_idx += 1
-    print(comm_idx, end=" ")
-    return fixed_res
+
+    res_trace = trace.drop([f"R{i}"], axis=1)
+    res_trace[f"R{i}"] = pd.Series(fixed_res)
+
+    return res_trace
+
+
+def get_hybrid_it(it_type, original_n_nodes, curr_n_nodes):
+    """
+    Parse the string or int
+    Return "-t" arg for execution
+    """
+    if isinstance(it_type, int) or it_type.isdigit():
+        return ["-t", f"{it_type}"]
+    else:
+        it_type = it_type.split("-")  # Get all args
+        if it_type[0] == "linear":
+            return ["-t", f"{curr_n_nodes}"]
+        elif it_type[0] == "ratio":  # arg1= min, arg2= max
+            n_it = int((1 - (curr_n_nodes / original_n_nodes)) * int(it_type[2]))
+            return [
+                "-t",
+                f"{max([n_it, int(it_type[1])])}",
+            ]
+        else:
+            raise NameError("Unknown type of hybrid iteration")
 
 
 def hybrid_multi_level_beta(
@@ -232,7 +262,6 @@ def hybrid_multi_level_beta(
     hybrid_it: str = "",
     explosion: int = 1,
     try_close: int = 1,
-    last_try: bool = True,
     expl_min_ratio: float = 0.5,
     add_args=[],
     verbose: bool = False,
@@ -273,8 +302,6 @@ def hybrid_multi_level_beta(
     expl_min_ratio: float
         Ratio of internal links of a node, nodes with ratio > "merge_min_ratio" will 
         be kept fused when a community is exploded, if > 1 all node will be exploded 
-    last_try: bool
-        If True before closing for stagnation, a last explosion of all communities will be attempted
     add_args: list
         A list of additional parameter for the executable
     verbose: bool
@@ -295,19 +322,21 @@ def hybrid_multi_level_beta(
     # Create G0 from original graph for consistency
     G0 = nx.read_gml(graph, label="id")
     original_G0 = G0
+    original_G0_n_nodes = G0.number_of_nodes()
     # G0 = nx.convert_node_labels_to_integers(G0)  # Make sure first label is 0
     write_gml(G0, f"{path}/G/G0.gml")
 
     trace = pd.DataFrame()  # Empty dataframe to save the traceback
+
     R_i = None  # Needed for exploding the best result instead of the last
+    after_expl_R = {}
     fit_hist, time_hist = [], []  # History of modularities and times
     best_1R = -1
     explode_pool = []
     h_it = []
-    old_explosion = explosion
 
     # Needed to give communities non-conflicting ids with original nodes
-    n_nodes = max(G0.nodes())
+    offset = max(G0.nodes()) + 1
     if verbose:
         print(
             "Graph".rjust(5),
@@ -315,24 +344,16 @@ def hybrid_multi_level_beta(
             "Edges".rjust(5),
             "Comm".ljust(5),
             "Fit".ljust(8),
-            "Ex Time".rjust(5),
+            "Iter".ljust(4),
+            "H.Time".rjust(5),
+            "C.Comm".rjust(5),
         )
     for i in range(max_levels):  # Each loop: G"i" graph -compute-> create G"i+1"
         t_loop = timer()
-        # Preparing args, computing hybrid-ia and gettin results
-        if hybrid_it:
-            if hybrid_it == "linear":
-                h_it = ["-t", f"{G0.number_of_nodes()}"]
-            elif hybrid_it == "i_linear":
-                # n_it = original_G0.number_of_nodes() + 10 - G0.number_of_nodes()
-                n_it = int((original_G0.number_of_nodes() / G0.number_of_nodes()) * 10)
-                h_it = [
-                    "-t",
-                    f"{n_it if n_it <100 else 100 }",
-                ]
-            else:
-                h_it = ["-t", hybrid_it]
+        ## Reset varibles
 
+        # Preparing args, computing hybrid-ia and gettin results
+        h_it = get_hybrid_it(hybrid_it, original_G0_n_nodes, G0.number_of_nodes())
         args = (
             [
                 to_run,
@@ -345,56 +366,55 @@ def hybrid_multi_level_beta(
         # res = subprocess.run(args, capture_output=True) #3.8 version
         res = subprocess.run(args, stdout=subprocess.PIPE)  # 3.6 version
 
-        # Saving Raw Output in R folder
+        # Saving Raw Output in R file
         arrRes = res.stdout.decode("UTF-8").replace("\n", "")
         with open(f"{path}/R.txt", "a") as text_file:
             print(f"{arrRes}", file=text_file)
 
-        # Results cleaning
+        # Result to array
         arrRes = arrRes.split("\t")
-        if verbose:
-            print(
-                f"{'G'+str(i):5} {arrRes[1]:5} {arrRes[2]:5} {arrRes[-3]:5} {float(arrRes[9]):6f} {float(arrRes[-1]):3f} ",
-                end="",
-            )
 
         # Saving resulting communities & update support variables
         R0 = dict(
-            (int(val[0]), int(val[1]) + n_nodes)
+            (int(val[0]), int(val[1]) + offset)
             for val in [pair.split(":") for pair in arrRes[11].split(",")]
         )
-        trace = add_trace(i, R0, trace, prev=R_i)  # Updating traceback dataframe
+        # Adding res to trace
+        trace = add_trace(
+            i, R0, trace, after_expl_R, prev=R_i
+        )  # Updating traceback dataframe
+        # Reset used values
+        R_i = None
+        after_expl_R = {}
 
         # Fix Disconnected Comms
-        partition = trace.iloc[:, i].to_dict()
-        my_inverted_dict = defaultdict(list)
-        {my_inverted_dict[v].append(k) for k, v in partition.items()}
-        R0 = fix_disconnected_comms(
-            original_G0, list(my_inverted_dict.values()), n_nodes
-        )
-        trace = trace.drop([f"R{i}"], axis=1)
-        trace[f"R{i}"] = pd.Series(R0)
-        # trace = add_trace(i, R0, trace, prev=0,)
+        trace = fix_disconnected_comms(original_G0, trace, i, offset)
 
-        R_i = None  # Clean after been used
+        # Print Results
+        if verbose:
+            print(
+                f"{'G'+str(i):5}",
+                f"{arrRes[1]:5}",
+                f"{arrRes[2]:5}",
+                f"{arrRes[-3]:5}",
+                f"{float(arrRes[9]):6.5f}",
+                f"{h_it[1]:>5}",
+                f"{float(arrRes[-1]):>6.2f}",
+                f"{len(trace[f'R{i}'].unique()):6}",
+                end=" ",
+                sep=" ",
+            )
 
         # Update modularity history
         fit_hist = fit_hist + [float(arrRes[9])]
 
-        # Find latest best index
+        # Find latest best level index
         best_R = -1 - ((fit_hist[::-1].index(max(fit_hist))) - len(fit_hist))
-
-        # Print unique communities found in trace, Useful for debug Trace
-        # print(len(trace[f"R{i}"].unique()), end="u ")
 
         # Creating exploding pool if new Best
         if best_1R != fit_hist.index(max(fit_hist)):
             best_1R = fit_hist.index(max(fit_hist))
             explode_pool = list(trace[f"R{best_1R}"].unique()) * try_close
-            # Reset some values
-            if last_try:
-                last_try_check = True
-                explosion = old_explosion
 
         # Check if stagnating
         # if check_close_condition(fit_hist):
@@ -402,17 +422,12 @@ def hybrid_multi_level_beta(
             # Check if explosion is needed, exit if pool is empty
             if explosion:
                 if not explode_pool:  # If Explode Pool is empty
-                    if last_try_check:
-                        last_try_check = False
-                        explode_pool = list(trace[f"R{best_1R}"].unique())
-                        explosion = len(explode_pool)
-                    else:
-                        time_hist += [timer() - t_start]  # Save Time_hist
-                        print(f"CLOSING, can't find better result")
-                        break
+                    time_hist += [timer() - t_start]  # Save Time_hist
+                    print(f"CLOSING, can't find better result")
+                    break
                 R_i = best_1R
                 # exploding_comm = random.randint(
-                #     n_nodes+1, trace[(f"R{R_i}")].max())
+                #     offset+1, trace[(f"R{R_i}")].max())
                 exploding_comm = random.sample(
                     list(set(explode_pool)),
                     k=explosion
@@ -425,7 +440,7 @@ def hybrid_multi_level_beta(
                 if try_close:
                     for c in exploding_comm:
                         explode_pool.remove(c)
-                G1 = explode_community_beta(
+                G1, after_expl_R = explode_community_beta(
                     original_G0,
                     trace,
                     exploding_comm,
@@ -433,34 +448,35 @@ def hybrid_multi_level_beta(
                     min_ratio=expl_min_ratio,
                     verbose=verbose,
                 )
-            else:
+            else:  # Close for modularity stagnation
                 time_hist += [timer() - t_start]  # Save Time_hist
                 print(f"CLOSING, can't find better result")
                 break
-        elif smart_merge:
-            G1 = explode_community_beta(
+        else:
+            G1, after_expl_R = explode_community_beta(
                 original_G0,
                 trace,
                 explode_id=[],
                 i=i,
-                min_ratio=merge_min_ratio,
+                min_ratio=merge_min_ratio if smart_merge else -1,
                 verbose=verbose,
             )
-        else:
-            G1 = merge_nodes(G0, R0)
-            if verbose:
-                print(f"R{i} -> G{i+1}", end=" ")
+        # else: #Normal Merge
+        #     G1 = merge_nodes(G0, )
+        #     if verbose:
+        #         print(f"R{i} -> G{i+1}", end=" ")
 
+        # Create next level Graph
         if save_intermediate:
             write_gml(G1, f"{path}/G/G{i+1}.gml")
         else:
             write_gml(G1, f"{path}/G/Gf.gml")
         G0 = G1
 
-        # Print Time and overhead
+        # Print Overhead and overall time
         if verbose:
             print(
-                f"{(timer()-float(arrRes[-1])-t_loop): 5.2f} {timer()-t_start : 5.2f} {h_it[1]}"
+                f"{(timer()-float(arrRes[-1])-t_loop): 5.2f} {timer()-t_start : 5.2f}"
             )  # \n
 
         # Save Time_hist
@@ -468,14 +484,13 @@ def hybrid_multi_level_beta(
 
         # Check exit conditions
         if mod_goal is not None and mod_goal <= fit_hist[-1]:
-            # time_hist += [timer() - t_start]
             print(f"CLOSING, Found modularity goal!")
             break
         if max_time is not None and max_time <= time_hist[-1]:
-            # time_hist += [timer() - t_start]
             print(f"CLOSING, Max time reached!")
             break
 
+    # Closing procedure
     t_end = timer()
     print(f"Computation took {t_end - t_start}s")
     print(
