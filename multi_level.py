@@ -16,6 +16,8 @@ import json
 from pathlib import Path
 from collections import defaultdict
 
+import pquality as pq
+
 
 def merge_nodes(G, R):
     """
@@ -206,6 +208,28 @@ def explode_community_beta(
 
 
 def fix_disconnected_comms(G: nx.Graph, trace: pd.DataFrame, i: int, offset):
+    """
+    Divides communities in theirs fully connected components, id of new communities
+    are different, from original ids.
+
+    Parameters
+    ----------
+    G0 : nx.Graph
+        The original graph with the original nodes
+    trace : pd.DataFrame
+        DataFrame with the traceback dataframe.
+    i: int
+        number of the current level
+    offset: int
+        Offset used when indexing the communities
+
+    Returns
+    -------
+    DataFrame:
+        The fixed dataframe
+    float:
+        New modularity after fix
+    """
     partition = trace.iloc[:, i].to_dict()
     my_inverted_dict = defaultdict(list)
     {my_inverted_dict[v].append(k) for k, v in partition.items()}
@@ -227,7 +251,7 @@ def fix_disconnected_comms(G: nx.Graph, trace: pd.DataFrame, i: int, offset):
     res_trace = trace.drop([f"R{i}"], axis=1)
     res_trace[f"R{i}"] = pd.Series(fixed_res)
 
-    return res_trace
+    return res_trace, float(pq.PartitionQuality.community_modularity(fixed_res, G))
 
 
 def get_hybrid_it(it_type, original_n_nodes, curr_n_nodes):
@@ -388,7 +412,7 @@ def hybrid_multi_level_beta(
         after_expl_R = {}
 
         # Fix Disconnected Comms
-        trace = fix_disconnected_comms(original_G0, trace, i, offset)
+        trace, fixed_mod = fix_disconnected_comms(original_G0, trace, i, offset)
 
         # Print Results
         if verbose:
@@ -401,12 +425,14 @@ def hybrid_multi_level_beta(
                 f"{h_it[1]:>5}",
                 f"{float(arrRes[-1]):>6.2f}",
                 f"{len(trace[f'R{i}'].unique()):6}",
+                f"{fixed_mod:6.5f}",
                 end=" ",
                 sep=" ",
             )
 
         # Update modularity history
-        fit_hist = fit_hist + [float(arrRes[9])]
+        # fit_hist = fit_hist + [float(arrRes[9])]
+        fit_hist = fit_hist + [fixed_mod]
 
         # Find latest best level index
         best_R = -1 - ((fit_hist[::-1].index(max(fit_hist))) - len(fit_hist))
@@ -519,3 +545,5 @@ def hybrid_multi_level_beta(
 
     return log
 
+
+# %%

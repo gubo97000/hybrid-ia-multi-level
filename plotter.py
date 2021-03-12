@@ -44,11 +44,11 @@ def stat_table(networks, to_comp):
         for net in networks:
             if not row.empty:
                 row = pd.concat(
-                    [row, bu.batch_stats(f"{fold[0]}/{net.lower()}", net, fold[1])],
+                    [row, bu.batch_stats(f"{fold[0]}/{net.lower()}", net, fold[1], len(fold)==3)],
                     axis=1,
                 )
             else:
-                row = bu.batch_stats(f"{fold[0]}/{net.lower()}", net, fold[1])
+                row = bu.batch_stats(f"{fold[0]}/{net.lower()}", net, fold[1],len(fold)==3)
         stat = pd.concat([stat, row])
     # display(stat)
     return stat
@@ -69,12 +69,7 @@ def plot_compare(networks, to_compare, pdf=False):
         count += 1
 
         for fold in to_compare:
-            if fold[0] in [
-                "./bench-batch-hybrid",
-                "./BB-hybridIA",
-                "t-runs/results-ia",
-                "t-runs/results-hybridia",
-            ]:  # Pure
+            if len(fold) >= 4:  # Pure
                 avg, log = bu.hyAverage(f"{fold[0]}/{network_name.lower()}")
                 for name, ex in log.items():
                     ax1.plot(
@@ -133,16 +128,19 @@ def plot_compare(networks, to_compare, pdf=False):
 plot_compare(
     ["Email", "Yeast", "Power"],
     [
-        ["BB/BB-Immuno", "xkcd:purple", "Mean Immunologic"],
+        ["BB/BB-Immuno", "xkcd:purple", "Mean Immunologic", ""],
         ["BB/BB-Immuno-multiLevel", "xkcd:green", "Mean MultiLevel"],
         ["BB/BB-Immuno-RSmartExplosion", "xkcd:red", "Mean Smart Explosion"],
-        ["BB/BB-hybridIA", "xkcd:orange", "Mean HybridIA"],
+        ["BB/BB-hybridIA", "xkcd:orange", "Mean HybridIA", ""],
         ["BB/BB-hybridIA-smartMerge", "xkcd:blue", "Mean HybridIA + Smart Merge"],
-
-        ["t-runs/results-ia", "xkcd:purple", "Immunologic"],
-        ["t-runs/results-random-explosion","xkcd:green","Immunologic + Random Explosion"],
+        ["t-runs/results-ia", "xkcd:purple", "Immunologic", ""],
+        [
+            "t-runs/results-random-explosion",
+            "xkcd:green",
+            "Immunologic + Random Explosion",
+        ],
         ["t-runs/results-smart-explosion", "xkcd:red", "Immunologic + Smart Explosion"],
-        ["t-runs/results-hybridia", "xkcd:orange", "HybridIA"],
+        ["t-runs/results-hybridia", "xkcd:orange", "HybridIA", ""],
         ["t-runs/results-smart-merge", "xkcd:blue", "HybridIA + Smart Merge"],
         # ["test", "xkcd:green", "HybridIA + Smart Merge"],
     ],
@@ -153,17 +151,21 @@ pd.options.display.latex.repr = True
 pd.options.display.latex.repr = False
 networks = ["Email", "Yeast", "Power"]
 to_comp = [
-    # ["BB/BB-Immuno", "Immunologic"],
+    # ["BB/BB-Immuno", "Immunologic",""],
     # ["BB/BB-Immuno-multiLevel", "Immunologic + M-L Explosion"],
     # ["BB/BB-Immuno-RSmartExplosion", "Immunologic + M-L Smart Explosion"],
-    # ["BB/BB-hybridIA", "HybridIA"],
+    # ["BB/BB-hybridIA", "HybridIA",""],
     # ["BB/BB-hybridIA-smartMerge", "HybridIA + Smart Merge"],
     # ["BB/BB-hybridIA-smartMerge-fix", "fix"],
-    ["t-runs/results-ia", "Immunologic"],
+    ["t-runs/results-ia", "Immunologic",""],
     ["t-runs/results-random-explosion", "Immunologic + Random Explosion"],
+    ["t-runs-conn/results-random-explosion", "Fix^^"],
     ["t-runs/results-smart-explosion", "Immunologic + Smart Explosion"],
-    ["t-runs/results-hybridia", "HybridIA"],
+    ["t-runs-conn/results-smart-explosion", "Fix^^"],
+    ["t-runs/results-hybridia", "HybridIA",""],
     ["t-runs/results-smart-merge", "HybridIA + Smart Merge"],
+    ["t-runs-conn/results-smart-merge", "Fix^^"],
+
 ]
 stat = stat_table(networks, to_comp)
 display(stat)
@@ -171,39 +173,51 @@ display(stat)
 # latex_str = stat.to_latex(caption=to_comp)
 html_str = stat.to_excel("./Plots/table.xlsx")
 
-# %% COMPARE IMMUNE
+# %% COMPARE WITH EXPLOSION
 plot_compare(
     ["Email", "Yeast", "Power"],
     [
-        # ["./bench-batch-hybrid", "xkcd:purple", "Mean Immunologic"],
-        # ["./bench-batch", "xkcd:green", "Mean MultiLevel"],
-        # ["./bench-batch-beta", "xkcd:red", "Mean Smart Explosion"],
-        # ["./BB-hybridIA", "xkcd:black", "Mean HybridIA"],
-        # ["./BB-hybridIA-smartMerge1", "xkcd:blue", "Mean HybridIA + Smart Merge"],
-        ["t-runs/results-ia", "xkcd:purple", "Mean Immunologic"],
-        ["t-runs/results-random-explosion", "xkcd:green", "Mean MultiLevel"],
-        ["t-runs/results-smart-explosion", "xkcd:red", "Mean Smart Explosion"],
-        # ["t-runs/results-hybridia", "xkcd:orange", "Mean HybridIA"],
-        # ["t-runs/results-smart-merge", "xkcd:blue", "Mean HybridIA + Smart Merge"],
+        ["t-runs/results-ia", "xkcd:purple", "Immunologic", ""],
+        [
+            "t-runs/results-random-explosion",
+            "xkcd:green",
+            "Immunologic + Random Explosion",
+        ],
     ],
-    pdf="Immune_Compare_Graph",
+    pdf="Immune_Random_Expl_Compare_Graph",
+)
+
+# %% IMMUNE
+plot_compare(
+    ["Email", "Yeast", "Power"],
+    [
+        ["t-runs/results-ia", "xkcd:purple", "Immunologic", ""],
+        [
+            "t-runs/results-random-explosion",
+            "xkcd:green",
+            "Immunologic + Random Explosion",
+        ],
+        [
+            "t-runs-conn/results-random-explosion",
+            "xkcd:orange",
+            "Immunologic + Random Explosion",
+        ],
+        ["t-runs/results-smart-explosion", "xkcd:red", "Immunologic + Smart Explosion"],
+        # ["t-runs-conn/results-smart-explosion", "xkcd:blue", "Connection Fix Smart Explosion"],
+    ],
+    # pdf="Immune_Compare_Graph",
+    pdf="Immune_Connect_Compare_Graph",
 )
 # %% COMPARE HYBRID
 plot_compare(
     ["Email", "Yeast", "Power"],
     [
-        # ["./bench-batch-hybrid", "xkcd:purple", "Mean Immunologic"],
-        # ["./bench-batch", "xkcd:green", "Mean MultiLevel"],
-        # ["./bench-batch-beta", "xkcd:red", "Mean Smart Explosion"],
-        # ["./BB-hybridIA", "xkcd:black", "Mean HybridIA"],
-        # ["./BB-hybridIA-smartMerge1", "xkcd:blue", "Mean HybridIA + Smart Merge"],
-        # ["t-runs/results-ia", "xkcd:purple", "Mean Immunologic"],
-        # ["t-runs/results-random-explosion", "xkcd:green", "Mean MultiLevel"],
-        # ["t-runs/results-smart-explosion", "xkcd:red", "Mean Smart Explosion"],
-        ["t-runs/results-hybridia", "xkcd:orange", "Mean HybridIA"],
-        ["t-runs/results-smart-merge", "xkcd:blue", "Mean HybridIA + Smart Merge"],
+        ["t-runs/results-hybridia", "xkcd:orange", "HybridIA",""],
+        ["t-runs/results-smart-merge", "xkcd:blue", "HybridIA + Smart Merge"],
+        ["t-runs-conn/results-smart-merge", "xkcd:green", "Fix HybridIA + Smart Merge"],
     ],
-    pdf="Hybrid_Compare_Graph",
+    # pdf="Hybrid_Compare_Graph",
+    pdf="Hybrid_Connect_Compare_Graph",
 )
 
 
@@ -315,7 +329,7 @@ final_pdf_name = False
 final_pdf_name = f"./Plots/No_Bomb_Graph{names}"
 #######
 
-fig = plot_compare(names, [["./bench-batch-hybrid", "xkcd:purple", "Immunologic"],],)
+fig = plot_compare(names, [["t-runs/results-ia", "xkcd:purple", "Immunologic",""],],)
 # plt.figure(figsize=(10, len(names) * 5))
 plt.figure(fig.number)
 count = 1
@@ -324,7 +338,7 @@ for pdf_name in names:
     count += 1
     ####No Explosion ####
     all_max_mod = []
-    avg, log = bu.multiAverage(f"./bench-batch/{pdf_name.lower()}")
+    avg, log = bu.multiAverage(f"t-runs/results-random-explosion/{pdf_name.lower()}")
     for name, ex in log.items():
         # Check first time modularity stagnate
         stop_i = 0
@@ -334,17 +348,18 @@ for pdf_name in names:
         # all_stop_i+=[stop_i+1]
         # ax1.plot(ex["h_time"], ex["res"]["fit_hist"])
         ax1.plot(
-            ex["h_time"][: stop_i + 1],
-            ex["h_best_fit"][: stop_i + 1],
+            ex["h_time"][: stop_i + 1]+[ex["h_time"][-1]],
+            ex["h_best_fit"][: stop_i + 1]+[ex["h_best_fit"][stop_i + 1]],
             c=color_light("xkcd:green", 1.8),
+            alpha=0.4,
         )
 
         all_max_mod += [ex["h_best_fit"][stop_i + 1]]
     stop_i = next(i for i, v in enumerate(avg["h_best_fit"]) if v >= mean(all_max_mod))
 
     ax1.plot(
-        avg["h_time"][:stop_i],
-        avg["h_best_fit"][:stop_i],
+        list(avg["h_time"][:stop_i])+[avg["h_time"][-1]],
+        avg["h_best_fit"][:stop_i]+[avg["h_best_fit"][stop_i-1]],
         linewidth=2,
         c="xkcd:green",
         label=f"Immunologic + Simple Multi-Level",

@@ -249,7 +249,7 @@ def rel_timeVgraph(rootdirs, max_n=None):
 
 
 # %%
-def batch_stats(rootdirs, network, name):
+def batch_stats(rootdirs, network, name, no_multi=False):
     """
     Execution time, fit, iteration for each execution in directory, and cumulative stats at the end
 
@@ -261,8 +261,7 @@ def batch_stats(rootdirs, network, name):
 
     Returns
     -------
-    Complete df with all sta for each run, last 4 row are the cumulative stats
-    use [-4:] to select only them
+
 
     """
     rootdirs = rootdirs if type(rootdirs) == list else [rootdirs]
@@ -276,7 +275,7 @@ def batch_stats(rootdirs, network, name):
         # dirs=[float(i) for i in dirs]
         # dirs = sorted(dirs, key=lambda x: int("".join([i for i in x if i.isdigit()])))
         for i in tq.tqdm(dirs, desc=rootdir, leave=False):
-            if rootdir.split("/")[1] in ["bench-batch-hybrid", "BB-hybridIA","results-ia","results-hybridia"]:
+            if no_multi:
                 with open(f"./{rootdir}/{i}/T_M.txt") as j:
                     r = json.load(j)
                 names += [i]
@@ -312,12 +311,33 @@ def batch_stats(rootdirs, network, name):
     df.loc["std"] = df.std()
 
     # print(df[1])
-    fit = f"{df.loc['mean']['Fit']:5.4f}±{df.loc['std']['Fit']:5.4f}"
-    time = f"{int(df.loc['mean']['Execution Time (s)'])}±{int(df.loc['std']['Execution Time (s)'])}"
-    max_f = f"{df.loc['max']['Fit']:5.4f}"
-    mux = pd.MultiIndex.from_product([[network], ["Max", "Avg. Mod", "Time (s)"]])
+    pm_notation=False
+    if pm_notation:
+        fit = f"{df.loc['mean']['Fit']:5.4f}±{df.loc['std']['Fit']:5.4f}"
+        time = f"{int(df.loc['mean']['Execution Time (s)'])}±{int(df.loc['std']['Execution Time (s)'])}"
+        max_f = f"{df.loc['max']['Fit']:5.4f}"
+        mux = pd.MultiIndex.from_product([[network], ["Max", "Avg. Mod", "Time (s)"]])
+    else:
+        fit = float(df.loc['mean']['Fit'])
+        fit_std= float(df.loc['std']['Fit'])
+        time = int(df.loc['mean']['Execution Time (s)'])
+        time_std= {int(df.loc['std']['Execution Time (s)'])}
+        max_f = df.loc['max']['Fit']
+        mux = pd.MultiIndex.from_product([[network], [
+            "Max", 
+            "Avg. Mod",
+            "std Mod", 
+            "Time (s)", 
+            # "std Time"
+            ]])
     se = pd.DataFrame(
-        data=[[max_f, fit, time]],
+        data=[[
+            max_f, 
+            fit, 
+            fit_std, 
+            time, 
+            # time_std
+            ]],
         # index=[rootdirs[0].split("/")[1]],
         index=[name],
         columns=mux,

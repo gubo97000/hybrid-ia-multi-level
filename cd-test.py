@@ -7,6 +7,8 @@ from cdlib import evaluation, algorithms
 import json
 import tqdm.notebook as tq
 
+import pquality as pq
+
 
 def to_NC(partition, graph, name):
     my_inverted_dict = defaultdict(list)
@@ -79,10 +81,19 @@ evaluation.normalized_mutual_information(lp_coms, hy_coms)
 # %%
 print(lp_coms.newman_girvan_modularity())
 print(hy_coms.newman_girvan_modularity())
+
 # %%
-partition = pd.read_csv("test/power/1615159868223111/trace.csv", index_col=0).iloc[:, 0].to_dict()
+partition = pd.read_csv("t-runs-conn/results-smart-explosion/yeast/1615317195355697/trace.csv", index_col=0).iloc[:, 0].to_dict()
+# partition = pd.read_csv("t-runs-conn/results-smart-explosion/power/1615329203399727/trace.csv", index_col=0).iloc[:, 0].to_dict()
+# partition = pd.read_csv("t-runs-conn/results-smart-explosion/email/1615311193580832/trace.csv", index_col=0).iloc[:, 0].to_dict()
 my_inverted_dict = defaultdict(list)
 {my_inverted_dict[v].append(k) for k, v in partition.items()}
+G=nx.read_gml("./networks/yeast.gml",label="id")
+pq.PartitionQuality.community_modularity(partition, G)
 
-nx.algorithms.community.quality.modularity(nx.read_gml("./networks/power.gml", label="id"),list(my_inverted_dict.values()))
+# %%
+%%timeit
+
+
+
 # %%
