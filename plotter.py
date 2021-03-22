@@ -147,7 +147,8 @@ plot_compare(
     pdf="C_Full_Compare_Graph",
 )
 #%% FULL STAT TABLE
-pd.options.display.latex.repr = True
+# pd.options.display.latex.repr = True
+
 pd.options.display.latex.repr = False
 networks = ["Email", "Yeast", "Power"]
 to_comp = [
@@ -170,7 +171,8 @@ to_comp = [
 stat = stat_table(networks, to_comp)
 display(stat)
 
-# latex_str = stat.to_latex(caption=to_comp)
+latex_str = stat.to_latex(caption=to_comp)
+print(latex_str)
 html_str = stat.to_excel("./Plots/table.xlsx")
 
 # %% COMPARE WITH EXPLOSION

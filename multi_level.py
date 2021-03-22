@@ -188,19 +188,17 @@ def explode_community_beta(
     for k, v in R_base.items():
         if (
             not (explode_id) or v in explode_id
-        ):  # Explode if explode id is [], oe if v is in
+        ):  # EXPLODE if explode_id is [], or if v is in
             if min_ratio < 0 or (
                 min_ratio <= 1 and ratio_internal_degree(k, v, G0, R_base) > min_ratio
-            ):
-                # keep in comm
+            ): # KEEP: <0 simple multi-level, if >1 explosion for sure
                 fixed_R0[k] = v
-                # + (R_base_max - R_base_len) + 1
                 i_count += 1
-            else:
-                fixed_R0[k] = k  # expl
+            else: #EXPLOSION
+                fixed_R0[k] = k
                 e_count += 1
-        else:
-            fixed_R0[k] = v  # keep in comm
+        else: #KEEP
+            fixed_R0[k] = v  
             i_count += 1
     if verbose:
         print(f"({i_count}) ){e_count}(", end=" ")
@@ -256,8 +254,11 @@ def fix_disconnected_comms(G: nx.Graph, trace: pd.DataFrame, i: int, offset):
 
 def get_hybrid_it(it_type, original_n_nodes, curr_n_nodes):
     """
-    Parse the string or int
-    Return "-t" arg for execution
+    Parse the string or int to readable arg for called process
+    
+    Returns
+    -------
+    ["-t", "int"]
     """
     if isinstance(it_type, int) or it_type.isdigit():
         return ["-t", f"{it_type}"]
@@ -278,8 +279,7 @@ def get_hybrid_it(it_type, original_n_nodes, curr_n_nodes):
 def hybrid_multi_level_beta(
     graph,
     to_run: str = "./hybrid-ia",
-    smart_merge: bool = False,
-    merge_min_ratio: float = 0.5,
+    merge_min_ratio: float = -1,
     mod_goal: float = None,
     max_time: int = None,
     max_levels=9999999,
@@ -303,12 +303,10 @@ def hybrid_multi_level_beta(
         Path to gml file the original graph where to find the communities
     to_run: str
         Path to binaries of the base algorithm
-    smart_merge: bool
-        If True will not merge the entire community but only a subset of node based on 
-        "merge_min_ratio" value
     merge_min_ratio: float
-        Ratio of internal links of a node, nodes with ratio > "merge_min_ratio" will 
-        be fused with Smart Merge  
+        If <=0 all nodes will be fused for next level (simple multi level) 
+        If 0<x<=1 nodes with iDegree/outDegree > "merge_min_ratio" will be fused (Smart Merge)
+        If >1 no node will be fused, useless  
     mod_goal: float
         Value of Modularity to reach
     max_time: int
@@ -478,13 +476,13 @@ def hybrid_multi_level_beta(
                 time_hist += [timer() - t_start]  # Save Time_hist
                 print(f"CLOSING, can't find better result")
                 break
-        else:
+        else: #Merging
             G1, after_expl_R = explode_community_beta(
                 original_G0,
                 trace,
                 explode_id=[],
                 i=i,
-                min_ratio=merge_min_ratio if smart_merge else -1,
+                min_ratio=merge_min_ratio,
                 verbose=verbose,
             )
         # else: #Normal Merge

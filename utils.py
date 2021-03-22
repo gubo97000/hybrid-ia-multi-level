@@ -6,12 +6,20 @@ from gml import write_gml
 
 #%% Create graph for gephi
 
-rootdir = "t-runs-conn/results-smart-merge/yeast/1615226998873767"
-# rootdir="Profiler"
-G = nx.read_gml("networks/yeast.gml", label="id")
+# rootdir = "t-runs-conn/results-smart-merge/yeast/1615226998873767"
+# rootdir = "t-runs-conn/results-smart-explosion/yeast/1615317195355697"
+# rootdir = "t-runs/results-smart-merge/power/1614074403316572"
+rootdir = "t-runs/results-smart-merge/email/1614069315438030"
+# rootdir = "Profiler"
+G = nx.read_gml("networks/email.gml", label="id")
 # MultiLevel
+
 tr = pd.read_csv(f"{rootdir}/trace.csv", index_col=0).iloc[:, 0].to_dict()
+# tr2 = pd.read_csv(f"{rootdir2}/trace.csv", index_col=0).iloc[:, 0].to_dict()
+
 nx.set_node_attributes(G, tr, name="comm")
+# nx.set_node_attributes(G, tr2, name="comm2")
+
 write_gml(G, "./GT.gml")
 # %% Create graph for gephi no multilevel
 import io
@@ -30,7 +38,7 @@ G = nx.read_gml("networks/power.gml", label="id")
 nx.set_node_attributes(G, tr, name="comm")
 write_gml(G, "./GTh.gml")
 
-# %% Fix wrong modularity
+# %% Fix wrong modularity (t-runs-conn problem)
 import json
 import os
 import pquality as pq
@@ -68,4 +76,15 @@ for rootdir in rootdirs:
         it += [len(r["fit_hist"])]
 
 
+# %%
+G = nx.read_edgelist("networks/email-Eu-core.txt")
+# G = nx.read_gml("networks/emailEu.gml")
+tr = (
+    pd.read_csv(
+        f"networks/email-Eu-core-department-labels.txt", delimiter=" ", header=None, index_col=0
+    )
+    .to_dict()
+)
+nx.set_node_attributes(G, tr, name="comm")
+# write_gml(G,"networks/emailEu.gml")
 # %%

@@ -311,12 +311,13 @@ def batch_stats(rootdirs, network, name, no_multi=False):
     df.loc["std"] = df.std()
 
     # print(df[1])
-    pm_notation=False
+    pm_notation=True #plus minus notation
     if pm_notation:
         fit = f"{df.loc['mean']['Fit']:5.4f}±{df.loc['std']['Fit']:5.4f}"
-        time = f"{int(df.loc['mean']['Execution Time (s)'])}±{int(df.loc['std']['Execution Time (s)'])}"
+        # time = f"{int(df.loc['mean']['Execution Time (s)'])}±{int(df.loc['std']['Execution Time (s)'])}"
+        time = int(df.loc['mean']['Execution Time (s)'])
         max_f = f"{df.loc['max']['Fit']:5.4f}"
-        mux = pd.MultiIndex.from_product([[network], ["Max", "Avg. Mod", "Time (s)"]])
+        mux = pd.MultiIndex.from_product([[network], ["Max Mod", "Avg. Mod", "Time (s)"]])
     else:
         fit = float(df.loc['mean']['Fit'])
         fit_std= float(df.loc['std']['Fit'])
@@ -324,7 +325,7 @@ def batch_stats(rootdirs, network, name, no_multi=False):
         time_std= {int(df.loc['std']['Execution Time (s)'])}
         max_f = df.loc['max']['Fit']
         mux = pd.MultiIndex.from_product([[network], [
-            "Max", 
+            "Max Mod", 
             "Avg. Mod",
             "std Mod", 
             "Time (s)", 
@@ -334,7 +335,7 @@ def batch_stats(rootdirs, network, name, no_multi=False):
         data=[[
             max_f, 
             fit, 
-            fit_std, 
+            # fit_std, 
             time, 
             # time_std
             ]],

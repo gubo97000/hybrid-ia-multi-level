@@ -774,6 +774,7 @@ def generate_gml(G, stringizer=None):
 @open_file(1, mode='wb')
 def write_gml(G, path, stringizer=None):
     """Write a graph `G` in GML format to the file or file handle `path`.
+    Fixed by Gubo97000
 
     Parameters
     ----------

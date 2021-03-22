@@ -10,7 +10,7 @@ import tqdm.notebook as tq
 import pquality as pq
 
 
-def to_NC(partition, graph, name):
+def to_NC(partition:dict, graph, name):
     my_inverted_dict = defaultdict(list)
     {my_inverted_dict[v].append(k) for k, v in partition.items()}
     return cdlib.NodeClustering(list(my_inverted_dict.values()), graph, name)
@@ -78,6 +78,19 @@ hy_coms = get_best_partition("./BB-hybridIA-smartMerge/email/1612622221743967/")
 
 evaluation.normalized_mutual_information(lp_coms, hy_coms)
 
+# %% NORMALIZED MUTUAL INFORMATION Ground
+g = nx.read_gml("./networks/emailEu.gml", label="id")
+
+solution= pd.read_csv(
+        f"networks/email-Eu-core-department-labels.txt", delimiter=" ", header=None, index_col=0
+    ).iloc[:,0].to_dict() 
+
+true = to_NC(solution, g, "Ground")
+
+hy_coms = get_best_partition("Profiler/")
+lp_coms = algorithms.louvain(g, randomize=True)
+evaluation.normalized_mutual_information(true, hy_coms)
+
 # %%
 print(lp_coms.newman_girvan_modularity())
 print(hy_coms.newman_girvan_modularity())
@@ -93,7 +106,5 @@ pq.PartitionQuality.community_modularity(partition, G)
 
 # %%
 %%timeit
-
-
 
 # %%

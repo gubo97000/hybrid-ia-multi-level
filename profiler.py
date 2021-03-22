@@ -10,8 +10,8 @@ importlib.reload(m)
 
 def profile_it():
     m.hybrid_multi_level_beta(
-        "./networks/yeast.gml",
-        smart_merge=True,
+        "./networks/emailEu.gml",
+        merge_min_ratio=0.5,
         # max_levels=20,
         max_time=200,
         hybrid_it= "ratio-10-40",
