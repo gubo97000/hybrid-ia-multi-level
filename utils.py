@@ -88,3 +88,12 @@ tr = (
 nx.set_node_attributes(G, tr, name="comm")
 # write_gml(G,"networks/emailEu.gml")
 # %%
+G= nx.karate_club_graph()
+def test(G):
+    for (node, comm) in G.nodes.data("partition", default=0):
+        G.nodes[node]["partition"]=comm if comm != node else 0
+        continue
+    
+
+print(G.nodes.data())
+# %%

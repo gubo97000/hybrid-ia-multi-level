@@ -1,5 +1,6 @@
 # %%
-import multi_level as m
+# import multi_level as m
+import multi_level_bootstrap as m
 import importlib
 import line_profiler
 %load_ext line_profiler
@@ -10,14 +11,16 @@ importlib.reload(m)
 
 def profile_it():
     m.hybrid_multi_level_beta(
-        "./networks/emailEu.gml",
+        "./networks/email.gml",
         merge_min_ratio=0.5,
-        # max_levels=20,
-        max_time=200,
+        expl_min_ratio=1.6,
+        # bootstrap=True,
+        # max_levels=999,
+        max_time=120,
         hybrid_it= "ratio-10-40",
-        # hybrid_it= "10",
-        explosion=0,
-        try_close=0,
+        # hybrid_it= 40,
+        explosion=2,
+        try_close=999,
         verbose=True,
         save_intermediate=True,
         path=f"./Profiler/",
@@ -45,7 +48,7 @@ def profile_it():
         
         )
 
-# %lprun -f m.hybrid_multi_level_beta -f m.add_trace profile_it()
+# %lprun -f m.hybrid_multi_level_beta profile_it()
 profile_it()
 # dat=pd.read_csv("./trace.csv")
 

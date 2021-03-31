@@ -146,6 +146,7 @@ plot_compare(
     ],
     pdf="C_Full_Compare_Graph",
 )
+
 #%% FULL STAT TABLE
 # pd.options.display.latex.repr = True
 
